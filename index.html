@@ -1,1 +1,136 @@
-index
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>NOVARA — Retail from the future</title>
+<meta name="description" content="NOVARA is a futuristic e-commerce store for next-generation audio, wearables, smart home and computing devices.">
+
+<!-- Open Graph -->
+<meta property="og:title" content="NOVARA — Retail from the future">
+<meta property="og:description" content="Curated devices, wearables and smart-home tech built for the decade ahead.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://picsum.photos/seed/novarahero/900/900">
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="NOVARA — Retail from the future">
+<meta name="twitter:description" content="Curated devices, wearables and smart-home tech built for the decade ahead.">
+
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛸</text></svg>">
+<link rel="canonical" href="https://example.com/">
+
+<!-- Schema.org -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Store",
+  "name": "NOVARA",
+  "description": "Futuristic e-commerce store for next-generation tech.",
+  "url": "https://example.com/"
+}
+</script>
+
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="bg-field" aria-hidden="true"><span></span><span></span><span></span></div>
+
+<div class="announce">🚀 Free shipping over $75 · New 2060 collection now live <button aria-label="Dismiss" onclick="this.parentElement.style.display='none'">✕</button></div>
+
+<header class="site-header" id="siteHeader">
+  <div class="container header-row">
+    <button class="btn-icon nav-toggle" id="navToggle" aria-label="Open menu">☰</button>
+    <a href="#/home" class="logo"><span class="dot"></span>NOVARA</a>
+
+    <nav aria-label="Main">
+      <ul class="main-nav">
+        <li><a href="#/shop">Shop</a>
+          <div class="mega glass">
+            <div><h4>Audio</h4><a href="#/shop?cat=audio">Headphones</a><a href="#/shop?cat=audio">Speakers</a><a href="#/shop?cat=audio">Earbuds</a></div>
+            <div><h4>Wearables</h4><a href="#/shop?cat=wearables">Watches</a><a href="#/shop?cat=wearables">Rings</a><a href="#/shop?cat=wearables">Trackers</a></div>
+            <div><h4>Smart Home</h4><a href="#/shop?cat=home">Lighting</a><a href="#/shop?cat=home">Security</a><a href="#/shop?cat=home">Climate</a></div>
+          </div>
+        </li>
+        <li><a href="#/shop?tag=sale">Flash Sale</a></li>
+        <li><a href="#/shop">New Arrivals</a></li>
+        <li><a href="#/shop">Best Sellers</a></li>
+        <li><a href="#/dashboard">My Account</a></li>
+      </ul>
+    </nav>
+
+    <div class="search-bar">
+      <input class="input" id="searchInput" type="search" placeholder="Search products, brands, categories…" aria-label="Search">
+      <button class="icon-btn mic" id="micBtn" aria-label="Voice search">🎙️</button>
+      <button class="icon-btn" aria-label="Search" onclick="if(document.getElementById('searchInput').value){state.filters.q=document.getElementById('searchInput').value;navigate('shop')}">🔍</button>
+      <div class="search-suggest glass" id="searchSuggest"></div>
+    </div>
+
+    <div class="header-actions">
+      <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme"><span class="knob"></span></button>
+      <button class="btn-icon" id="userMenuBtn" aria-label="Account">👤</button>
+      <a href="#/dashboard/wishlist" class="btn-icon" aria-label="Wishlist">♡<span class="badge wish-count" style="display:none;">0</span></a>
+      <button class="btn-icon" id="cartBtn" aria-label="Cart">🛒<span class="badge cart-count" style="display:none;">0</span></button>
+    </div>
+  </div>
+</header>
+
+<!-- Mobile nav -->
+<div class="overlay" id="mobileNavOverlay"></div>
+<nav class="mobile-nav glass" id="mobileNav" aria-label="Mobile">
+  <a href="#/home">Home</a>
+  <a href="#/shop">Shop</a>
+  <a href="#/shop?tag=sale">Flash Sale</a>
+  <a href="#/dashboard">My Account</a>
+  <a href="#/cart">Cart</a>
+</nav>
+
+<!-- Router mount -->
+<main id="app"></main>
+
+<!-- Footer -->
+<footer>
+  <div class="container">
+    <div class="foot-grid">
+      <div>
+        <a href="#/home" class="logo"><span class="dot"></span>NOVARA</a>
+        <p style="color:var(--text-faint);font-size:.85rem;margin:14px 0;max-width:280px;">Retail from the future — curated tech for the decade ahead, shipped worldwide.</p>
+        <div class="foot-social">
+          <a class="btn-icon" href="#" aria-label="Facebook">f</a>
+          <a class="btn-icon" href="#" aria-label="Instagram">ig</a>
+          <a class="btn-icon" href="#" aria-label="Twitter">x</a>
+          <a class="btn-icon" href="#" aria-label="YouTube">yt</a>
+        </div>
+      </div>
+      <div><h5>Shop</h5><a href="#/shop">All products</a><a href="#/shop?tag=sale">Flash sale</a><a href="#/shop">New arrivals</a><a href="#/shop">Best sellers</a></div>
+      <div><h5>Account</h5><a href="#/dashboard">Dashboard</a><a href="#/dashboard/orders">Orders</a><a href="#/dashboard/wishlist">Wishlist</a><a href="#/cart">Cart</a></div>
+      <div><h5>Support</h5><a href="#/home">FAQ</a><a href="#/home">Shipping info</a><a href="#/home">Returns</a><a href="#/home">Contact us</a></div>
+      <div><h5>Company</h5><a href="#/home">About</a><a href="#/home">Careers</a><a href="#/home">Privacy policy</a><a href="#/home">Terms of service</a></div>
+    </div>
+    <div class="foot-bottom">
+      <span>© 2026 NOVARA. All rights reserved.</span>
+      <span>Built for GitHub Pages · Firebase powered</span>
+    </div>
+  </div>
+</footer>
+
+<!-- Cart drawer -->
+<div class="overlay" id="cartOverlay"></div>
+<aside class="drawer glass" id="cartDrawer" aria-label="Shopping cart">
+  <div class="drawer-head"><h3>Your cart</h3><button class="btn-icon" onclick="closeCart()">✕</button></div>
+  <div class="drawer-body" id="cartDrawerBody"></div>
+  <div class="drawer-foot" id="cartDrawerFoot"></div>
+</aside>
+
+<!-- Auth modal -->
+<div class="modal-back" id="authModalBack"></div>
+
+<!-- Toasts -->
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script src="config.js"></script>
+<script type="module" src="script.js"></script>
+</body>
+  </html>
+      
