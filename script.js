@@ -1335,3 +1335,304 @@ async function copyToClipboard(text, message) {
     toast("Couldn't copy — copy it manually.", "error");
   }
 }
+/* =============================================================================
+   13. NOTIFICATIONS
+============================================================================= */
+function buildNotifRow(n) {
+  const row = document.createElement("div");
+  row.className = `notif-row ${n.read ? "" : "is-unread"}`;
+  row.innerHTML = `
+    <span class="notif-row__title">${escapeHTML(n.title || "Notification")}</span>
+    <span class="notif-row__msg">${escapeHTML(n.message || "")}</span>
+    <span class="notif-row__time">${formatDate(n.createdAt)}</span>
+  `;
+  if (!n.read) {
+    row.addEventListener("click", () => markNotificationRead(n.id));
+  }
+  return row;
+}
+
+async function markNotificationRead(notifId) {
+  try {
+    await updateDoc(doc(db, COLLECTIONS.notifications, notifId), { read: true });
+  } catch { /* non-critical */ }
+}
+
+function loadNotificationsView() {
+  renderNotificationsList();
+}
+
+function renderNotificationsList() {
+  const container = $("#notificationsListFull");
+  const emptyEl = $("#notificationsEmpty");
+  if (!state.notifications.length) {
+    container.innerHTML = "";
+    emptyEl.hidden = false;
+    return;
+  }
+  emptyEl.hidden = true;
+  container.innerHTML = "";
+  state.notifications.forEach((n) => container.appendChild(buildNotifRow(n)));
+}
+
+$("#markAllReadBtn")?.addEventListener("click", async () => {
+  const unread = state.notifications.filter((n) => !n.read);
+  if (!unread.length) return;
+  try {
+    await Promise.all(unread.map((n) => updateDoc(doc(db, COLLECTIONS.notifications, n.id), { read: true })));
+    toast("All notifications marked as read.", "success");
+  } catch {
+    toast("Couldn't update notifications.", "error");
+  }
+});
+
+$("#notifBellBtn")?.addEventListener("click", () => navigate("/notifications"));
+
+/* =============================================================================
+   14. SUPPORT
+============================================================================= */
+const FAQ_ITEMS = [
+  { q: "How long do top-ups take to deliver?", a: "Most orders are processed within minutes once your wallet has sufficient balance and your Player UID is verified." },
+  { q: "How do I add funds to my wallet?", a: "Go to Wallet → Deposit, choose a payment method, enter your payment reference, and submit. Funds appear once the deposit is verified." },
+  { q: "What happens if I enter the wrong Player UID?", a: "Double-check your UID before confirming — top-ups sent to an incorrect UID usually cannot be recovered. Contact support immediately if you spot a mistake." },
+  { q: "Can I get a refund?", a: "Orders that fail to deliver are refunded to your wallet automatically. Contact support if an order looks stuck." },
+  { q: "How does the referral program work?", a: "Share your referral code or link. When a friend signs up and makes their first top-up, you both receive a wallet bonus." },
+];
+
+function loadSupportView() {
+  const list = $("#faqList");
+  if (!list.dataset.loaded) {
+    list.innerHTML = FAQ_ITEMS.map((item, i) => `
+      <div class="faq-item" id="faq-${i}">
+        <button type="button" class="faq-item__q">${escapeHTML(item.q)}</button>
+        <div class="faq-item__a">${escapeHTML(item.a)}</div>
+      </div>
+    `).join("");
+    list.dataset.loaded = "true";
+    list.addEventListener("click", (e) => {
+      const q = e.target.closest(".faq-item__q");
+      if (!q) return;
+      q.closest(".faq-item").classList.toggle("is-open");
+    });
+  }
+  if (state.profile) {
+    $("#supportName").value = state.profile.fullName || "";
+    $("#supportEmail").value = state.profile.email || "";
+  }
+}
+
+async function handleSupportSubmit(e) {
+  e.preventDefault();
+  const form = e.target;
+  const name = sanitizeInput($("#supportName").value);
+  const email = $("#supportEmail").value.trim();
+  const subject = sanitizeInput($("#supportSubject").value);
+  const message = sanitizeInput($("#supportMessage").value);
+
+  if (!name || !/^\S+@\S+\.\S+$/.test(email) || !subject || !message) {
+    toast("Please fill in every field before sending.", "error");
+    return;
+  }
+
+  const btn = $("#supportSubmitBtn");
+  setButtonLoading(btn, true);
+  try {
+    await addDoc(collection(db, COLLECTIONS.support), {
+      uid: state.user?.uid || null,
+      name,
+      email,
+      subject,
+      message,
+      status: "open",
+      createdAt: serverTimestamp(),
+    });
+    toast("Message sent — we'll get back to you by email.", "success");
+    form.reset();
+  } catch {
+    toast("Couldn't send your message. Try again.", "error");
+  } finally {
+    setButtonLoading(btn, false);
+  }
+ /* =============================================================================
+   15. SETTINGS
+============================================================================= */
+function loadSettingsView() {
+  const p = state.profile;
+  if (!p) return;
+  $("#settingsFullName").value = p.fullName || "";
+  $("#settingsEmail").value = p.email || "";
+  $("#settingsAvatarPreview").src = p.photoURL || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(p.fullName || "U")}`;
+  $("#settingsTheme").value = document.documentElement.getAttribute("data-theme") || "dark";
+  $("#settingsLanguage").value = localStorage.getItem("sa_topup_lang") || "en";
+}
+
+async function handleAvatarChange(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  try {
+    const path = `avatars/${state.user.uid}/${Date.now()}_${file.name}`;
+    const ref = storageRef(storage, path);
+    await uploadBytes(ref, file);
+    const url = await getDownloadURL(ref);
+    await updateDoc(doc(db, COLLECTIONS.users, state.user.uid), { photoURL: url });
+    $("#settingsAvatarPreview").src = url;
+    toast("Avatar updated.", "success");
+  } catch {
+    toast("Couldn't upload your avatar.", "error");
+  }
+}
+
+async function handleProfileSubmit(e) {
+  e.preventDefault();
+  const fullName = sanitizeInput($("#settingsFullName").value);
+  if (fullName.length < 2) { toast("Enter your full name.", "error"); return; }
+  const btn = $("#profileSubmitBtn");
+  setButtonLoading(btn, true);
+  try {
+    await updateDoc(doc(db, COLLECTIONS.users, state.user.uid), { fullName });
+    await updateProfile(auth.currentUser, { displayName: fullName });
+    await logAudit("profile_updated", {});
+    toast("Profile updated.", "success");
+  } catch {
+    toast("Couldn't save your profile.", "error");
+  } finally {
+    setButtonLoading(btn, false);
+  }
+}
+
+async function handlePasswordSubmit(e) {
+  e.preventDefault();
+  const currentPassword = $("#currentPassword").value;
+  const newPassword = $("#newPassword").value;
+  if (newPassword.length < 6) { toast("New password must be at least 6 characters.", "error"); return; }
+
+  const btn = $("#passwordSubmitBtn");
+  setButtonLoading(btn, true);
+  try {
+    const cred = EmailAuthProvider.credential(state.user.email, currentPassword);
+    await reauthenticateWithCredential(auth.currentUser, cred);
+    await updatePassword(auth.currentUser, newPassword);
+    await logAudit("password_changed", {});
+    toast("Password updated.", "success");
+    e.target.reset();
+  } catch (err) {
+    toast(friendlyAuthError(err), "error");
+  } finally {
+    setButtonLoading(btn, false);
+  }
+}
+
+$("#settingsTheme")?.addEventListener("change", (e) => applyTheme(e.target.value));
+$("#settingsLanguage")?.addEventListener("change", (e) => {
+  localStorage.setItem("sa_topup_lang", e.target.value);
+  toast("Language preference saved.", "success");
+});
+$("#settingsLogoutBtn")?.addEventListener("click", handleLogout);
+
+/* =============================================================================
+   16. THEME TOGGLE / MOBILE NAV / USER MENU (header interactivity)
+============================================================================= */    
+function applyTheme(theme) {
+  document.documentElement.setAttribute("data-theme", theme);
+  localStorage.setItem("sa_topup_theme", theme);
+}
+
+function initTheme() {
+  const saved = localStorage.getItem("sa_topup_theme");
+  applyTheme(saved || state.settings.defaultTheme || "dark");
+}
+
+$("#themeToggleBtn").addEventListener("click", () => {
+  const current = document.documentElement.getAttribute("data-theme");
+  applyTheme(current === "dark" ? "light" : "dark");
+});
+
+function closeMobileNav() {
+  $("#mobileNav").hidden = true;
+  $("#hamburgerBtn").setAttribute("aria-expanded", "false");
+}
+$("#hamburgerBtn").addEventListener("click", () => {
+  const isHidden = $("#mobileNav").hidden;
+  $("#mobileNav").hidden = !isHidden;
+  $("#hamburgerBtn").setAttribute("aria-expanded", String(isHidden));
+});
+$("#mobileLogoutBtn").addEventListener("click", handleLogout);
+
+function closeUserMenu() {
+  $("#userMenuPanel").hidden = true;
+  $("#userMenuTrigger")?.setAttribute("aria-expanded", "false");
+}
+$("#userMenuTrigger").addEventListener("click", (e) => {
+  e.stopPropagation();
+  const isHidden = $("#userMenuPanel").hidden;
+  $("#userMenuPanel").hidden = !isHidden;
+  $("#userMenuTrigger").setAttribute("aria-expanded", String(isHidden));
+});
+document.addEventListener("click", (e) => {
+  if (!$("#userMenu").contains(e.target)) closeUserMenu();
+});
+$("#logoutBtn").addEventListener("click", handleLogout);
+
+$("#announcementClose").addEventListener("click", () => {
+  localStorage.setItem("dismissedAnnouncement", $("#announcementText").textContent);
+  $("#announcementBar").hidden = true;
+});
+
+/* Password visibility toggles */
+$all("[data-toggle-for]").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const input = document.getElementById(btn.dataset.toggleFor);
+    if (!input) return;
+    input.type = input.type === "password" ? "text" : "password";
+  });
+});
+
+/* Delegate SPA navigation for any [data-nav] link (keeps hashchange as source of truth) */
+document.body.addEventListener("click", (e) => {
+  const link = e.target.closest("[data-nav]");
+  if (!link) return;
+  // let the browser update the hash naturally; hashchange listener re-renders.
+});
+
+/* =============================================================================
+   17. APP LOADER
+============================================================================= */
+function hideAppLoader() {
+  $("#appLoader").classList.add("is-hidden");
+}
+
+/* =============================================================================
+   18. FORM BINDINGS
+============================================================================= */
+$("#registerForm").addEventListener("submit", handleRegister);
+$("#loginForm").addEventListener("submit", handleLogin);
+$("#forgotForm").addEventListener("submit", handleForgotPassword);
+$("#depositForm").addEventListener("submit", handleDepositSubmit);
+$("#orderForm").addEventListener("submit", handlePlaceOrder);
+$("#applyCouponBtn").addEventListener("click", handleApplyCoupon);
+$("#supportForm").addEventListener("submit", handleSupportSubmit);
+$("#profileForm").addEventListener("submit", handleProfileSubmit);
+$("#passwordForm").addEventListener("submit", handlePasswordSubmit);
+$("#avatarInput").addEventListener("change", handleAvatarChange);
+
+/* =============================================================================
+   19. INIT
+============================================================================= */
+function prefillReferralFromURL() {
+  // Supports links like #/register?ref=CODE123
+  const hash = window.location.hash;
+  const match = hash.match(/[?&]ref=([^&]+)/);
+  if (match && $("#registerReferral")) {
+    $("#registerReferral").value = decodeURIComponent(match[1]);
+  }
+}
+
+function init() {
+  listenToSettings();
+  initTheme();
+  prefillReferralFromURL();
+  if (!window.location.hash) window.location.hash = "#/home";
+  renderRoute();
+}
+
+init();  
