@@ -1,136 +1,480 @@
 <!DOCTYPE html>
 <html lang="en" data-theme="dark">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>NOVARA — Retail from the future</title>
-<meta name="description" content="NOVARA is a futuristic e-commerce store for next-generation audio, wearables, smart home and computing devices.">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title id="seoTitle">SA Topup Zone — Game Top-Ups & Diamonds</title>
+<meta id="seoDescription" name="description" content="Top up game diamonds, memberships and passes instantly and securely." />
 
 <!-- Open Graph -->
-<meta property="og:title" content="NOVARA — Retail from the future">
-<meta property="og:description" content="Curated devices, wearables and smart-home tech built for the decade ahead.">
-<meta property="og:type" content="website">
-<meta property="og:image" content="https://picsum.photos/seed/novarahero/900/900">
+<meta id="ogTitle" property="og:title" content="SA Topup Zone" />
+<meta id="ogDescription" property="og:description" content="Instant, secure game top-ups." />
+<meta id="ogImage" property="og:image" content="" />
+<meta property="og:type" content="website" />
 
 <!-- Twitter Card -->
-<meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="NOVARA — Retail from the future">
-<meta name="twitter:description" content="Curated devices, wearables and smart-home tech built for the decade ahead.">
+<meta name="twitter:card" content="summary_large_image" />
+<meta id="twitterTitle" name="twitter:title" content="SA Topup Zone" />
+<meta id="twitterDescription" name="twitter:description" content="Instant, secure game top-ups." />
 
-<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛸</text></svg>">
-<link rel="canonical" href="https://example.com/">
-
-<!-- Schema.org -->
-<script type="application/ld+json">
+<!-- Structured data (populated at runtime from Firebase settings) -->
+<script type="application/ld+json" id="structuredData">
 {
   "@context": "https://schema.org",
-  "@type": "Store",
-  "name": "NOVARA",
-  "description": "Futuristic e-commerce store for next-generation tech.",
-  "url": "https://example.com/"
+  "@type": "Organization",
+  "name": "SA Topup Zone"
 }
 </script>
 
-<link rel="stylesheet" href="style.css">
+<link rel="icon" id="favicon" href="data:," />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet" />
+
+<link rel="stylesheet" href="style.css" />
 </head>
 <body>
 
-<div class="bg-field" aria-hidden="true"><span></span><span></span><span></span></div>
+<!-- ==================================================================
+     SKIP LINK / A11Y
+================================================================== -->
+<a class="skip-link" href="#mainContent">Skip to main content</a>
 
-<div class="announce">🚀 Free shipping over $75 · New 2060 collection now live <button aria-label="Dismiss" onclick="this.parentElement.style.display='none'">✕</button></div>
+<!-- ==================================================================
+     INITIAL LOAD SCREEN
+================================================================== -->
+<div id="appLoader" class="app-loader" role="status" aria-live="polite">
+  <div class="app-loader__mark">
+    <span class="app-loader__ring"></span>
+    <span class="app-loader__ring app-loader__ring--delay"></span>
+  </div>
+  <p class="app-loader__text">Loading SA Topup Zone…</p>
+</div>
 
+<!-- ==================================================================
+     TOASTS
+================================================================== -->
+<div id="toastStack" class="toast-stack" aria-live="assertive" aria-atomic="true"></div>
+
+<!-- ==================================================================
+     ANNOUNCEMENT BANNER (admin-controlled)
+================================================================== -->
+<div id="announcementBar" class="announcement-bar" hidden>
+  <span id="announcementText"></span>
+  <button type="button" class="announcement-bar__close" id="announcementClose" aria-label="Dismiss announcement">&times;</button>
+</div>
+
+<!-- ==================================================================
+     HEADER / NAVIGATION
+================================================================== -->
 <header class="site-header" id="siteHeader">
-  <div class="container header-row">
-    <button class="btn-icon nav-toggle" id="navToggle" aria-label="Open menu">☰</button>
-    <a href="#/home" class="logo"><span class="dot"></span>NOVARA</a>
+  <div class="site-header__inner container">
+    <a href="#/home" class="brand" id="brandLink" data-nav>
+      <img id="brandLogo" class="brand__logo" src="" alt="" hidden />
+      <span class="brand__mark" id="brandInitial" aria-hidden="true">S</span>
+      <span class="brand__name" id="brandName">SA Topup Zone</span>
+    </a>
 
-    <nav aria-label="Main">
-      <ul class="main-nav">
-        <li><a href="#/shop">Shop</a>
-          <div class="mega glass">
-            <div><h4>Audio</h4><a href="#/shop?cat=audio">Headphones</a><a href="#/shop?cat=audio">Speakers</a><a href="#/shop?cat=audio">Earbuds</a></div>
-            <div><h4>Wearables</h4><a href="#/shop?cat=wearables">Watches</a><a href="#/shop?cat=wearables">Rings</a><a href="#/shop?cat=wearables">Trackers</a></div>
-            <div><h4>Smart Home</h4><a href="#/shop?cat=home">Lighting</a><a href="#/shop?cat=home">Security</a><a href="#/shop?cat=home">Climate</a></div>
-          </div>
-        </li>
-        <li><a href="#/shop?tag=sale">Flash Sale</a></li>
-        <li><a href="#/shop">New Arrivals</a></li>
-        <li><a href="#/shop">Best Sellers</a></li>
-        <li><a href="#/dashboard">My Account</a></li>
-      </ul>
+    <nav class="main-nav" id="mainNav" aria-label="Main navigation">
+      <a href="#/home" data-nav class="main-nav__link">Home</a>
+      <a href="#/shop" data-nav class="main-nav__link">Shop</a>
+      <a href="#/orders" data-nav class="main-nav__link main-nav__link--auth">Orders</a>
+      <a href="#/referrals" data-nav class="main-nav__link main-nav__link--auth">Referrals</a>
+      <a href="#/support" data-nav class="main-nav__link">Support</a>
     </nav>
 
-    <div class="search-bar">
-      <input class="input" id="searchInput" type="search" placeholder="Search products, brands, categories…" aria-label="Search">
-      <button class="icon-btn mic" id="micBtn" aria-label="Voice search">🎙️</button>
-      <button class="icon-btn" aria-label="Search" onclick="if(document.getElementById('searchInput').value){state.filters.q=document.getElementById('searchInput').value;navigate('shop')}">🔍</button>
-      <div class="search-suggest glass" id="searchSuggest"></div>
-    </div>
-
     <div class="header-actions">
-      <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme"><span class="knob"></span></button>
-      <button class="btn-icon" id="userMenuBtn" aria-label="Account">👤</button>
-      <a href="#/dashboard/wishlist" class="btn-icon" aria-label="Wishlist">♡<span class="badge wish-count" style="display:none;">0</span></a>
-      <button class="btn-icon" id="cartBtn" aria-label="Cart">🛒<span class="badge cart-count" style="display:none;">0</span></button>
+      <button type="button" class="icon-btn" id="themeToggleBtn" aria-label="Toggle light and dark theme" title="Toggle theme">
+        <svg class="icon icon--sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>
+        <svg class="icon icon--moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z"/></svg>
+      </button>
+
+      <div class="header-actions__auth" id="headerAuthArea">
+        <a href="#/login" data-nav class="btn btn--ghost btn--sm">Log in</a>
+        <a href="#/register" data-nav class="btn btn--primary btn--sm">Sign up</a>
+      </div>
+
+      <div class="header-actions__user" id="headerUserArea" hidden>
+        <a href="#/wallet" data-nav class="wallet-pill" id="walletPillBtn" title="Wallet balance">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="6" width="20" height="14" rx="2.5"/><path d="M16 12h.01M2 10h20"/></svg>
+          <span id="walletPillAmount">R0.00</span>
+        </a>
+
+        <button type="button" class="icon-btn icon-btn--bell" id="notifBellBtn" aria-label="Notifications">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8a6 6 0 1 1 12 0c0 5 2 6 2 6H4s2-1 2-6Z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg>
+          <span class="notif-dot" id="notifDot" hidden></span>
+        </button>
+
+        <div class="user-menu" id="userMenu">
+          <button type="button" class="user-menu__trigger" id="userMenuTrigger" aria-haspopup="true" aria-expanded="false">
+            <img id="userAvatar" class="user-menu__avatar" src="" alt="" />
+          </button>
+          <div class="user-menu__panel" id="userMenuPanel" hidden>
+            <p class="user-menu__name" id="userMenuName">—</p>
+            <p class="user-menu__email" id="userMenuEmail">—</p>
+            <hr />
+            <a href="#/dashboard" data-nav>Dashboard</a>
+            <a href="#/wallet" data-nav>Wallet</a>
+            <a href="#/orders" data-nav>Order history</a>
+            <a href="#/settings" data-nav>Settings</a>
+            <button type="button" id="logoutBtn" class="user-menu__logout">Log out</button>
+          </div>
+        </div>
+      </div>
+
+      <button type="button" class="icon-btn hamburger" id="hamburgerBtn" aria-label="Open menu" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
     </div>
+  </div>
+
+  <!-- Mobile nav drawer -->
+  <div class="mobile-nav" id="mobileNav" hidden>
+    <a href="#/home" data-nav>Home</a>
+    <a href="#/shop" data-nav>Shop</a>
+    <a href="#/orders" data-nav class="main-nav__link--auth">Orders</a>
+    <a href="#/wallet" data-nav class="main-nav__link--auth">Wallet</a>
+    <a href="#/referrals" data-nav class="main-nav__link--auth">Referrals</a>
+    <a href="#/support" data-nav>Support</a>
+    <a href="#/settings" data-nav class="main-nav__link--auth">Settings</a>
+    <div class="mobile-nav__auth" id="mobileAuthArea">
+      <a href="#/login" data-nav class="btn btn--ghost">Log in</a>
+      <a href="#/register" data-nav class="btn btn--primary">Sign up</a>
+    </div>
+    <button type="button" id="mobileLogoutBtn" class="btn btn--ghost mobile-nav__logout" hidden>Log out</button>
   </div>
 </header>
 
-<!-- Mobile nav -->
-<div class="overlay" id="mobileNavOverlay"></div>
-<nav class="mobile-nav glass" id="mobileNav" aria-label="Mobile">
-  <a href="#/home">Home</a>
-  <a href="#/shop">Shop</a>
-  <a href="#/shop?tag=sale">Flash Sale</a>
-  <a href="#/dashboard">My Account</a>
-  <a href="#/cart">Cart</a>
-</nav>
+<!-- ==================================================================
+     MAIN CONTENT — all views live here, one visible at a time
+================================================================== -->
+<main id="mainContent">
 
-<!-- Router mount -->
-<main id="app"></main>
-
-<!-- Footer -->
-<footer>
-  <div class="container">
-    <div class="foot-grid">
-      <div>
-        <a href="#/home" class="logo"><span class="dot"></span>NOVARA</a>
-        <p style="color:var(--text-faint);font-size:.85rem;margin:14px 0;max-width:280px;">Retail from the future — curated tech for the decade ahead, shipped worldwide.</p>
-        <div class="foot-social">
-          <a class="btn-icon" href="#" aria-label="Facebook">f</a>
-          <a class="btn-icon" href="#" aria-label="Instagram">ig</a>
-          <a class="btn-icon" href="#" aria-label="Twitter">x</a>
-          <a class="btn-icon" href="#" aria-label="YouTube">yt</a>
+  <!-- ---------------- HOME (public landing) ---------------- -->
+  <section class="view" id="view-home" data-view="home">
+    <section class="hero">
+      <div class="hero__bg" id="heroBg" aria-hidden="true"></div>
+      <div class="container hero__inner">
+        <p class="eyebrow">Top up in seconds</p>
+        <h1 class="hero__title" id="heroTitle">Power up your favourite games, instantly.</h1>
+        <p class="hero__subtitle" id="heroSubtitle">Diamonds, memberships and passes — delivered fast, verified securely, wrapped in one clean wallet.</p>
+        <div class="hero__actions">
+          <a href="#/shop" data-nav class="btn btn--primary btn--lg">Browse games</a>
+          <a href="#/register" data-nav class="btn btn--outline btn--lg" id="heroSecondaryCta">Create free account</a>
+        </div>
+        <div class="hero__stats" id="heroStats">
+          <div><strong>24/7</strong><span>Order processing</span></div>
+          <div><strong>Secure</strong><span>Verified deposits</span></div>
+          <div><strong>Instant</strong><span>Wallet delivery</span></div>
         </div>
       </div>
-      <div><h5>Shop</h5><a href="#/shop">All products</a><a href="#/shop?tag=sale">Flash sale</a><a href="#/shop">New arrivals</a><a href="#/shop">Best sellers</a></div>
-      <div><h5>Account</h5><a href="#/dashboard">Dashboard</a><a href="#/dashboard/orders">Orders</a><a href="#/dashboard/wishlist">Wishlist</a><a href="#/cart">Cart</a></div>
-      <div><h5>Support</h5><a href="#/home">FAQ</a><a href="#/home">Shipping info</a><a href="#/home">Returns</a><a href="#/home">Contact us</a></div>
-      <div><h5>Company</h5><a href="#/home">About</a><a href="#/home">Careers</a><a href="#/home">Privacy policy</a><a href="#/home">Terms of service</a></div>
+    </section>
+
+    <section class="section container">
+      <div class="section__head">
+        <div>
+          <p class="eyebrow">Catalogue</p>
+          <h2>Popular games</h2>
+        </div>
+        <a href="#/shop" data-nav class="link-arrow">View all games →</a>
+      </div>
+      <div class="game-grid" id="homeGameGrid" aria-live="polite">
+        <!-- skeleton / games injected by script.js -->
+      </div>
+    </section>
+
+    <section class="section section--muted">
+      <div class="container features-grid">
+        <div class="feature-card">
+          <div class="feature-card__icon">⚡</div>
+          <h3>Instant delivery</h3>
+          <p>Orders are queued the moment your wallet clears — no waiting on manual back-and-forth.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-card__icon">🔒</div>
+          <h3>Verified deposits</h3>
+          <p>Every top-up is checked against your payment method before it ever touches your wallet.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-card__icon">🎁</div>
+          <h3>Referral rewards</h3>
+          <p>Invite friends and earn wallet credit every time they make their first top-up.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-card__icon">🎟️</div>
+          <h3>Coupons & bonuses</h3>
+          <p>Stack discount codes and seasonal bonuses right at checkout.</p>
+        </div>
+      </div>
+    </section>
+  </section>
+
+  <!-- ---------------- LOGIN ---------------- -->
+  <section class="view view--auth" id="view-login" data-view="login">
+    <div class="auth-card glass">
+      <h1>Welcome back</h1>
+      <p class="auth-card__sub">Log in to manage your wallet and orders.</p>
+      <form id="loginForm" novalidate>
+        <div class="field">
+          <label for="loginEmail">Email address</label>
+          <input type="email" id="loginEmail" name="email" autocomplete="email" required />
+          <span class="field__error" data-error-for="loginEmail"></span>
+        </div>
+        <div class="field">
+          <label for="loginPassword">Password</label>
+          <div class="field__with-action">
+            <input type="password" id="loginPassword" name="password" autocomplete="current-password" required minlength="6" />
+            <button type="button" class="field__toggle-visibility" data-toggle-for="loginPassword" aria-label="Show password">👁</button>
+          </div>
+          <span class="field__error" data-error-for="loginPassword"></span>
+        </div>
+        <div class="field field--row">
+          <label class="checkbox">
+            <input type="checkbox" id="rememberMe" name="rememberMe" checked />
+            <span>Remember me</span>
+          </label>
+          <a href="#/forgot-password" data-nav class="auth-card__link">Forgot password?</a>
+        </div>
+        <button type="submit" class="btn btn--primary btn--block" id="loginSubmitBtn">
+          <span class="btn__label">Log in</span>
+          <span class="btn__spinner" hidden></span>
+        </button>
+      </form>
+      <p class="auth-card__switch">New here? <a href="#/register" data-nav>Create an account</a></p>
     </div>
-    <div class="foot-bottom">
-      <span>© 2026 NOVARA. All rights reserved.</span>
-      <span>Built for GitHub Pages · Firebase powered</span>
+  </section>
+
+  <!-- ---------------- REGISTER ---------------- -->
+  <section class="view view--auth" id="view-register" data-view="register">
+    <div class="auth-card glass">
+      <h1>Create your account</h1>
+      <p class="auth-card__sub">Join in seconds — no card required to sign up.</p>
+      <form id="registerForm" novalidate>
+        <div class="field">
+          <label for="registerName">Full name</label>
+          <input type="text" id="registerName" name="fullName" autocomplete="name" required minlength="2" />
+          <span class="field__error" data-error-for="registerName"></span>
+        </div>
+        <div class="field">
+          <label for="registerEmail">Email address</label>
+          <input type="email" id="registerEmail" name="email" autocomplete="email" required />
+          <span class="field__error" data-error-for="registerEmail"></span>
+        </div>
+        <div class="field">
+          <label for="registerPassword">Password</label>
+          <div class="field__with-action">
+            <input type="password" id="registerPassword" name="password" autocomplete="new-password" required minlength="6" />
+            <button type="button" class="field__toggle-visibility" data-toggle-for="registerPassword" aria-label="Show password">👁</button>
+          </div>
+          <span class="field__hint">At least 6 characters.</span>
+          <span class="field__error" data-error-for="registerPassword"></span>
+        </div>
+        <div class="field">
+          <label for="registerReferral">Referral code <span class="field__optional">(optional)</span></label>
+          <input type="text" id="registerReferral" name="referralCode" autocomplete="off" />
+        </div>
+        <div class="field">
+          <label class="checkbox">
+            <input type="checkbox" id="registerTerms" name="terms" required />
+            <span>I agree to the Terms of Service and Privacy Policy</span>
+          </label>
+          <span class="field__error" data-error-for="registerTerms"></span>
+        </div>
+        <button type="submit" class="btn btn--primary btn--block" id="registerSubmitBtn">
+          <span class="btn__label">Create account</span>
+          <span class="btn__spinner" hidden></span>
+        </button>
+      </form>
+      <p class="auth-card__switch">Already have an account? <a href="#/login" data-nav>Log in</a></p>
     </div>
-  </div>
-</footer>
+  </section>
 
-<!-- Cart drawer -->
-<div class="overlay" id="cartOverlay"></div>
-<aside class="drawer glass" id="cartDrawer" aria-label="Shopping cart">
-  <div class="drawer-head"><h3>Your cart</h3><button class="btn-icon" onclick="closeCart()">✕</button></div>
-  <div class="drawer-body" id="cartDrawerBody"></div>
-  <div class="drawer-foot" id="cartDrawerFoot"></div>
-</aside>
+  <!-- ---------------- FORGOT PASSWORD ---------------- -->
+  <section class="view view--auth" id="view-forgot-password" data-view="forgot-password">
+    <div class="auth-card glass">
+      <h1>Reset your password</h1>
+      <p class="auth-card__sub">Enter your email — we'll send you a reset link.</p>
+      <form id="forgotForm" novalidate>
+        <div class="field">
+          <label for="forgotEmail">Email address</label>
+          <input type="email" id="forgotEmail" name="email" autocomplete="email" required />
+          <span class="field__error" data-error-for="forgotEmail"></span>
+        </div>
+        <button type="submit" class="btn btn--primary btn--block" id="forgotSubmitBtn">
+          <span class="btn__label">Send reset link</span>
+          <span class="btn__spinner" hidden></span>
+        </button>
+      </form>
+      <p class="auth-card__switch"><a href="#/login" data-nav>← Back to log in</a></p>
+    </div>
+  </section>
 
-<!-- Auth modal -->
-<div class="modal-back" id="authModalBack"></div>
+  <!-- ---------------- DASHBOARD (protected) ---------------- -->
+  <section class="view" id="view-dashboard" data-view="dashboard" data-protected="true">
+    <div class="container">
+      <div class="page-head">
+        <div class="page-head__profile">
+          <img id="dashAvatar" class="page-head__avatar" src="" alt="" />
+          <div>
+            <h1 id="dashName">Welcome back</h1>
+            <p id="dashEmail" class="text-muted">—</p>
+          </div>
+        </div>
+        <a href="#/deposit" data-nav class="btn btn--primary">+ Deposit funds</a>
+      </div>
 
-<!-- Toasts -->
-<div class="toast-wrap" id="toastWrap"></div>
+      <div class="stat-grid">
+        <div class="stat-card glass">
+          <span class="stat-card__label">Wallet balance</span>
+          <span class="stat-card__value" id="statWallet">R0.00</span>
+        </div>
+        <div class="stat-card glass">
+          <span class="stat-card__label">Total orders</span>
+          <span class="stat-card__value" id="statTotalOrders">0</span>
+        </div>
+        <div class="stat-card glass">
+          <span class="stat-card__label">Pending</span>
+          <span class="stat-card__value" id="statPendingOrders">0</span>
+        </div>
+        <div class="stat-card glass">
+          <span class="stat-card__label">Completed</span>
+          <span class="stat-card__value" id="statCompletedOrders">0</span>
+        </div>
+        <div class="stat-card glass">
+          <span class="stat-card__label">Cancelled</span>
+          <span class="stat-card__value" id="statCancelledOrders">0</span>
+        </div>
+        <div class="stat-card glass">
+          <span class="stat-card__label">Referral earnings</span>
+          <span class="stat-card__value" id="statReferralEarnings">R0.00</span>
+        </div>
+      </div>
 
-<script src="config.js"></script>
-<script type="module" src="script.js"></script>
-</body>
-  </html>
-      
+      <div class="dash-columns">
+        <div class="panel glass">
+          <div class="panel__head">
+            <h2>Recent orders</h2>
+            <a href="#/orders" data-nav class="link-arrow">See all →</a>
+          </div>
+          <div id="dashRecentOrders" class="order-list" aria-live="polite"></div>
+        </div>
+        <div class="panel glass">
+          <div class="panel__head">
+            <h2>Notifications</h2>
+            <a href="#/notifications" data-nav class="link-arrow">See all →</a>
+          </div>
+          <div id="dashRecentNotifications" class="notif-list" aria-live="polite"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ---------------- WALLET (protected) ---------------- -->
+  <section class="view" id="view-wallet" data-view="wallet" data-protected="true">
+    <div class="container">
+      <div class="page-head">
+        <h1>Wallet</h1>
+        <a href="#/deposit" data-nav class="btn btn--primary">+ Deposit funds</a>
+      </div>
+
+      <div class="wallet-balance-card glass">
+        <span>Current balance</span>
+        <strong id="walletBalanceLarge">R0.00</strong>
+        <p class="text-muted">Funds are only added after a deposit is verified — see <a href="#/deposit" data-nav>Deposit</a>.</p>
+      </div>
+
+      <div class="panel glass">
+        <div class="panel__head">
+          <h2>Transaction history</h2>
+          <div class="chip-filter" id="txFilter" role="tablist">
+            <button type="button" class="chip is-active" data-filter="all">All</button>
+            <button type="button" class="chip" data-filter="deposit">Deposits</button>
+            <button type="button" class="chip" data-filter="order">Orders</button>
+            <button type="button" class="chip" data-filter="refund">Refunds</button>
+            <button type="button" class="chip" data-filter="referral_bonus">Referral</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table" id="walletTxTable">
+            <thead>
+              <tr><th>Date</th><th>Type</th><th>Description</th><th>Amount</th><th>Balance after</th><th>Status</th></tr>
+            </thead>
+            <tbody id="walletTxBody"></tbody>
+          </table>
+        </div>
+        <p class="empty-state" id="walletTxEmpty" hidden>No transactions yet — your history will show up here.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ---------------- DEPOSIT (protected) ---------------- -->
+    <section class="view" id="view-deposit" data-view="deposit" data-protected="true">
+    <div class="container container--narrow">
+      <div class="page-head">
+        <h1>Deposit funds</h1>
+      </div>
+      <p class="notice-box">
+        Deposits are matched against your payment reference automatically. If a match can't be verified within a few minutes, our team reviews it manually — your wallet is only credited once the deposit is confirmed.
+      </p>
+
+      <form id="depositForm" class="panel glass" novalidate>
+        <div class="field">
+          <label for="depositMethod">Payment method</label>
+          <select id="depositMethod" name="method" required>
+            <option value="" disabled selected>Select a payment method</option>
+          </select>
+          <p class="field__hint" id="depositMethodInstructions"></p>
+        </div>
+        <div class="field">
+          <label for="depositAmount">Amount (R)</label>
+          <input type="number" id="depositAmount" name="amount" min="10" step="0.01" required />
+          <span class="field__error" data-error-for="depositAmount"></span>
+        </div>
+        <div class="field">
+          <label for="depositTxId">Transaction reference / ID</label>
+          <input type="text" id="depositTxId" name="transactionId" required />
+          <span class="field__hint">The reference number shown on your payment confirmation.</span>
+          <span class="field__error" data-error-for="depositTxId"></span>
+        </div>
+        <div class="field">
+          <label for="depositScreenshot">Payment screenshot <span class="field__optional">(optional)</span></label>
+          <input type="file" id="depositScreenshot" name="screenshot" accept="image/*" />
+        </div>
+        <button type="submit" class="btn btn--primary btn--block" id="depositSubmitBtn">
+          <span class="btn__label">Submit deposit</span>
+          <span class="btn__spinner" hidden></span>
+        </button>
+      </form>
+
+      <div class="panel glass">
+        <div class="panel__head"><h2>Recent deposits</h2></div>
+        <div class="table-wrap">
+          <table class="data-table" id="depositHistoryTable">
+            <thead><tr><th>Date</th><th>Method</th><th>Reference</th><th>Amount</th><th>Status</th></tr></thead>
+            <tbody id="depositHistoryBody"></tbody>
+          </table>
+        </div>
+        <p class="empty-state" id="depositHistoryEmpty" hidden>No deposits submitted yet.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ---------------- SHOP: games grid ---------------- -->
+  <section class="view" id="view-shop" data-view="shop">
+    <div class="container">
+      <div class="page-head">
+        <h1>Shop</h1>
+      </div>
+      <div class="shop-toolbar">
+        <div class="search-input">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          <input type="search" id="shopSearch" placeholder="Search games…" aria-label="Search games" />
+        </div>
+        <div class="chip-filter" id="shopCategoryFilter" role="tablist">
+          <button type="button" class="chip is-active" data-category="all">All</button>
+        </div>
+      </div>
+      <div class="game-grid" id="shopGameGrid" aria-live="polite"></div>
+      <p class="empty-state" id="shopEmpty" hidden>No games match your search yet — try another term.</p>
+    </div>
+  </section>
