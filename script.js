@@ -948,3 +948,390 @@ async function loadGameProducts(gameId) {
     toast("Couldn't load products for this game.", "error");
   }
 }
+/* =============================================================================
+   10. ORDER FORM & PLACEMENT
+============================================================================= */
+async function loadOrderView(productId) {
+  const form = $("#orderForm");
+  form.reset();
+  state.appliedCoupon = null;
+  $("#couponFeedback").textContent = "";
+  $("#insufficientWarning").hidden = true;
+
+  try {
+    let product = state.products.find((p) => p.id === productId);
+    if (!product) {
+      const pSnap = await getDoc(doc(db, COLLECTIONS.products, productId));
+      if (pSnap.exists()) product = { id: pSnap.id, ...pSnap.data() };
+    }
+    if (!product) {
+      toast("That product isn't available anymore.", "error");
+      navigate("/shop");
+      return;
+    }
+    state.selectedProduct = product;
+
+    let game = state.games.find((g) => g.id === product.gameId);
+    if (!game) {
+      const gSnap = await getDoc(doc(db, COLLECTIONS.games, product.gameId));
+      if (gSnap.exists()) game = { id: gSnap.id, ...gSnap.data() };
+    }
+    state.selectedGame = game;
+
+    $("#orderProductName").textContent = `Order ${product.name}`;
+    $("#orderProductTitle").textContent = product.name || "";
+    $("#orderProductDescription").textContent = product.description || "";
+    $("#orderProductImage").src = product.image || "";
+    $("#orderProductImage").alt = product.name || "";
+    $("#orderProductPrice").textContent = formatCurrency(product.price || 0);
+    if (product.bonus) {
+      $("#orderProductBonus").textContent = `+${product.bonus} bonus`;
+      $("#orderProductBonus").hidden = false;
+    } else {
+      $("#orderProductBonus").hidden = true;
+    }
+    $("#orderNicknameField").hidden = !(game && game.nicknameLookupEnabled);
+
+    updateOrderSummary();
+  } catch {
+    toast("Couldn't load this product.", "error");
+    navigate("/shop");
+  }
+}
+
+function computeDiscount(coupon, subtotal) {
+  if (!coupon) return 0;
+  let discount = coupon.type === "percentage" ? subtotal * (coupon.value / 100) : coupon.value;
+  return Math.min(round2(discount), subtotal);
+}
+
+function updateOrderSummary() {
+  const product = state.selectedProduct;
+  if (!product) return;
+  const qty = Math.max(1, parseInt($("#orderQuantity").value, 10) || 1);
+  const subtotal = round2((product.price || 0) * qty);
+  const discount = state.appliedCoupon ? computeDiscount(state.appliedCoupon, subtotal) : 0;
+  const total = round2(subtotal - discount);
+  const balance = state.wallet.balance || 0;
+
+  $("#summaryPrice").textContent = formatCurrency(product.price || 0);
+  $("#summaryQty").textContent = `×${qty}`;
+  $("#summaryDiscount").textContent = `−${formatCurrency(discount)}`;
+  $("#summaryTotal").textContent = formatCurrency(total);
+  $("#summaryWallet").textContent = formatCurrency(balance);
+
+  const insufficient = balance < total;
+  $("#insufficientWarning").hidden = !insufficient;
+  $("#placeOrderBtn").disabled = insufficient;
+}
+
+$("#orderQuantity")?.addEventListener("input", updateOrderSummary);
+
+async function handleApplyCoupon() {
+  const codeInput = sanitizeInput($("#orderCoupon").value).toUpperCase();
+  const feedback = $("#couponFeedback");
+  if (!codeInput) {
+    state.appliedCoupon = null;
+    feedback.textContent = "";
+    updateOrderSummary();
+    return;
+  }
+  try {
+    const q = query(collection(db, COLLECTIONS.coupons), where("code", "==", codeInput), limit(1));
+    const snap = await getDocs(q);
+    if (snap.empty) {
+      state.appliedCoupon = null;
+      feedback.textContent = "Coupon code not found.";
+      updateOrderSummary();
+      return;
+    }
+    const coupon = { id: snap.docs[0].id, ...snap.docs[0].data() };
+    const product = state.selectedProduct;
+    const qty = Math.max(1, parseInt($("#orderQuantity").value, 10) || 1);
+    const subtotal = round2((product.price || 0) * qty);
+
+    if (coupon.active === false) throw new Error("This coupon is no longer active.");
+    if (coupon.expiry && coupon.expiry.toDate && coupon.expiry.toDate() < new Date()) throw new Error("This coupon has expired.");
+    if (coupon.usageLimit && (coupon.usedCount || 0) >= coupon.usageLimit) throw new Error("This coupon has reached its usage limit.");
+    if (coupon.minPurchase && subtotal < coupon.minPurchase) throw new Error(`Minimum purchase for this coupon is ${formatCurrency(coupon.minPurchase)}.`);
+
+    state.appliedCoupon = coupon;
+    feedback.textContent = `Coupon applied — ${coupon.type === "percentage" ? `${coupon.value}% off` : `${formatCurrency(coupon.value)} off`}.`;
+    updateOrderSummary();
+  } catch (err) {
+    state.appliedCoupon = null;
+    feedback.textContent = err.message || "Couldn't apply this coupon.";
+    updateOrderSummary();
+  }
+}
+
+async function placeOrderTransaction({ uid, product, game, quantity, coupon, playerUID, serverID, playerNickname }) {
+  const userRef = doc(db, COLLECTIONS.users, uid);
+  const walletRef = doc(db, COLLECTIONS.wallets, uid);
+  const orderRef = doc(collection(db, COLLECTIONS.orders));
+  const txRef = doc(collection(db, COLLECTIONS.transactions));
+  const couponRef = coupon ? doc(db, COLLECTIONS.coupons, coupon.id) : null;
+
+  return runTransaction(db, async (trx) => {
+    const [walletSnap, userSnap] = await Promise.all([trx.get(walletRef), trx.get(userRef)]);
+    if (!walletSnap.exists() || !userSnap.exists()) throw new Error("Your account couldn't be found. Please log in again.");
+
+    const balance = walletSnap.data().balance || 0;
+    const subtotal = round2((product.price || 0) * quantity);
+    const discount = coupon ? computeDiscount(coupon, subtotal) : 0;
+    const total = round2(subtotal - discount);
+
+    if (balance < total) throw new Error("INSUFFICIENT_BALANCE");
+    if (total < 0) throw new Error("Order total is invalid.");
+
+    const newBalance = round2(balance - total);
+
+    trx.update(walletRef, { balance: newBalance, updatedAt: serverTimestamp() });
+    trx.update(userRef, {
+      walletBalance: newBalance,
+      totalOrders: increment(1),
+      pendingOrders: increment(1),
+    });
+    trx.set(orderRef, {
+      uid,
+      gameId: game?.id || product.gameId,
+      gameName: game?.name || "",
+      productId: product.id,
+      productName: product.name,
+      playerUID,
+      serverID: serverID || "",
+      playerNickname: playerNickname || "",
+      quantity,
+      unitPrice: product.price || 0,
+      subtotal,
+      discount,
+      total,
+      couponCode: coupon ? coupon.code : "",
+      status: "pending",
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+    trx.set(txRef, {
+      uid,
+      type: "order",
+      amount: -total,
+      balanceAfter: newBalance,
+      status: "completed",
+      note: `Order — ${product.name}`,
+      orderId: orderRef.id,
+      createdAt: serverTimestamp(),
+    });
+    if (couponRef) trx.update(couponRef, { usedCount: increment(1) });
+
+    return { orderId: orderRef.id };
+  });
+}
+
+async function handlePlaceOrder(e) {
+  e.preventDefault();
+  const form = e.target;
+  clearFormErrors(form);
+
+  const playerUID = sanitizeInput($("#orderPlayerUID").value);
+  const serverID = sanitizeInput($("#orderServerID").value);
+  const playerNickname = sanitizeInput($("#orderNickname").value);
+  const quantity = Math.max(1, parseInt($("#orderQuantity").value, 10) || 1);
+  const confirmed = $("#orderConfirm").checked;
+
+  let hasError = false;
+  if (!playerUID) { setFieldError("orderPlayerUID", "Player UID is required."); hasError = true; }
+  if (!confirmed) { setFieldError("orderConfirm", "Please confirm before placing your order."); hasError = true; }
+  if (hasError) return;
+
+  const btn = $("#placeOrderBtn");
+  setButtonLoading(btn, true);
+  try {
+    const result = await placeOrderTransaction({
+      uid: state.user.uid,
+      product: state.selectedProduct,
+      game: state.selectedGame,
+      quantity,
+      coupon: state.appliedCoupon,
+      playerUID,
+      serverID,
+      playerNickname,
+    });
+    await logAudit("order_placed", { orderId: result.orderId, productId: state.selectedProduct.id });
+    toast("Order placed! Track its status in Order history.", "success");
+    navigate("/orders");
+  } catch (err) {
+    if (err.message === "INSUFFICIENT_BALANCE") {
+      $("#insufficientWarning").hidden = false;
+      toast("Your wallet balance is too low for this order.", "error");
+    } else {
+      toast(err.message || "Couldn't place your order. Try again.", "error");
+    }
+  } finally {
+    setButtonLoading(btn, false);
+  }
+  }
+/* =============================================================================
+   11. ORDER HISTORY
+============================================================================= */
+function buildOrderRow(order) {
+  const row = document.createElement("div");
+  row.className = "order-row";
+  row.innerHTML = `
+    <div class="order-row__main">
+      <div>
+        <p class="order-row__title">${escapeHTML(order.productName || "Order")}</p>
+        <p class="order-row__meta">${escapeHTML(order.gameName || "")} · ${formatDate(order.createdAt)}</p>
+      </div>
+    </div>
+    <div class="order-row__right">
+      <span class="order-row__amount">${formatCurrency(order.total || 0)}</span>
+      <span class="badge badge--${order.status || "pending"}">${escapeHTML(order.status || "pending")}</span>
+    </div>
+  `;
+  row.addEventListener("click", () => openOrderDetail(order));
+  return row;
+}
+
+function openOrderDetail(order) {
+  $("#orderDetailTitle").textContent = order.productName || "Order details";
+  $("#orderDetailBody").innerHTML = `
+    <div class="price-summary" style="margin-top:0;">
+      <div><span>Order ID</span><span>${escapeHTML(order.id || "—")}</span></div>
+      <div><span>Game</span><span>${escapeHTML(order.gameName || "—")}</span></div>
+      <div><span>Player UID</span><span>${escapeHTML(order.playerUID || "—")}</span></div>
+      ${order.serverID ? `<div><span>Server ID</span><span>${escapeHTML(order.serverID)}</span></div>` : ""}
+      <div><span>Quantity</span><span>×${escapeHTML(String(order.quantity || 1))}</span></div>
+      <div><span>Discount</span><span>−${formatCurrency(order.discount || 0)}</span></div>
+      <div class="price-summary__total"><span>Total</span><span>${formatCurrency(order.total || 0)}</span></div>
+      <div><span>Status</span><span><span class="badge badge--${order.status || "pending"}">${escapeHTML(order.status || "pending")}</span></span></div>
+      <div><span>Created</span><span>${formatDate(order.createdAt)}</span></div>
+      <div><span>Updated</span><span>${formatDate(order.updatedAt)}</span></div>
+    </div>
+  `;
+  $("#orderDetailModal").hidden = false;
+}
+
+$all("[data-close-modal]").forEach((el) => el.addEventListener("click", () => {
+  $all(".modal").forEach((m) => (m.hidden = true));
+}));
+
+async function loadOrdersHistory(reset = false) {
+  const listEl = $("#ordersListFull");
+  const emptyEl = $("#ordersEmpty");
+  const pagination = $("#ordersPagination");
+
+  if (reset) {
+    state.ordersPage = { cursor: [], pageIndex: 0, lastDoc: null, statusFilter: "all", searchTerm: "" };
+    $("#orderSearch").value = "";
+    $all(".chip", "#orderStatusFilter").forEach((c) => c.classList.remove("is-active"));
+    $('[data-status="all"]', "#orderStatusFilter")?.classList.add("is-active");
+  }
+
+  listEl.innerHTML = `<div class="skeleton" style="height:60px;margin-bottom:10px;"></div>`.repeat(4);
+  try {
+    const clauses = [where("uid", "==", state.user.uid)];
+    if (state.ordersPage.statusFilter !== "all") clauses.push(where("status", "==", state.ordersPage.statusFilter));
+
+    let q = query(collection(db, COLLECTIONS.orders), ...clauses, orderBy("createdAt", "desc"), limit(APP_CONFIG.ordersPageSize));
+    if (state.ordersPage.lastDoc) q = query(collection(db, COLLECTIONS.orders), ...clauses, orderBy("createdAt", "desc"), startAfter(state.ordersPage.lastDoc), limit(APP_CONFIG.ordersPageSize));
+
+    const snap = await getDocs(q);
+    let orders = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+    const term = state.ordersPage.searchTerm.toLowerCase();
+    if (term) orders = orders.filter((o) => o.id.toLowerCase().includes(term) || (o.gameName || "").toLowerCase().includes(term));
+
+    if (!orders.length) {
+      listEl.innerHTML = "";
+      emptyEl.hidden = false;
+      pagination.hidden = true;
+      return;
+    }
+    emptyEl.hidden = true;
+    listEl.innerHTML = "";
+    orders.forEach((o) => listEl.appendChild(buildOrderRow(o)));
+
+    if (snap.docs.length) state.ordersPage.lastDoc = snap.docs[snap.docs.length - 1];
+    pagination.hidden = false;
+    $("#ordersPageLabel").textContent = `Page ${state.ordersPage.pageIndex + 1}`;
+    $("#ordersPrevBtn").disabled = state.ordersPage.pageIndex === 0;
+    $("#ordersNextBtn").disabled = snap.docs.length < APP_CONFIG.ordersPageSize;
+  } catch {
+    listEl.innerHTML = "";
+    emptyEl.hidden = false;
+    emptyEl.textContent = "Couldn't load your orders.";
+  }
+}
+
+$("#orderSearch")?.addEventListener("input", debounce((e) => {
+  state.ordersPage.searchTerm = e.target.value.trim();
+  loadOrdersHistory(false);
+}, 250));
+
+$("#orderStatusFilter")?.addEventListener("click", (e) => {
+  const chip = e.target.closest(".chip");
+  if (!chip) return;
+  $all(".chip", "#orderStatusFilter").forEach((c) => c.classList.remove("is-active"));
+  chip.classList.add("is-active");
+  state.ordersPage.statusFilter = chip.dataset.status;
+  state.ordersPage.lastDoc = null;
+  state.ordersPage.pageIndex = 0;
+  loadOrdersHistory(false);
+});
+
+$("#ordersNextBtn")?.addEventListener("click", () => {
+  state.ordersPage.pageIndex += 1;
+  loadOrdersHistory(false);
+});
+$("#ordersPrevBtn")?.addEventListener("click", () => {
+  // Simplified paging: for "previous" we just reset to first page and refetch.
+  // (Cursor-per-page tracking is avoided here to keep the client logic simple —
+  // fine for the modest per-user order volumes this view expects.)
+  state.ordersPage.pageIndex = 0;
+  state.ordersPage.lastDoc = null;
+  loadOrdersHistory(false);
+});
+/* =============================================================================
+   12. REFERRALS
+============================================================================= */
+async function loadReferrals() {
+  const p = state.profile;
+  if (!p) return;
+  $("#referralCodeValue").textContent = p.referralCode || "—";
+  $("#referralLinkValue").textContent = p.referralCode ? `${window.location.origin}${window.location.pathname}#/register?ref=${p.referralCode}` : "—";
+  $("#referralEarned").textContent = formatCurrency(p.referralEarnings || 0);
+
+  const body = $("#referralHistoryBody");
+  const emptyEl = $("#referralHistoryEmpty");
+  body.innerHTML = `<tr><td colspan="3"><div class="skeleton" style="height:20px;"></div></td></tr>`;
+  try {
+    const q = query(collection(db, COLLECTIONS.referrals), where("referrerUid", "==", state.user.uid), orderBy("createdAt", "desc"));
+    const snap = await getDocs(q);
+    $("#referralCount").textContent = snap.size;
+    if (snap.empty) {
+      body.innerHTML = "";
+      emptyEl.hidden = false;
+      return;
+    }
+    emptyEl.hidden = true;
+    body.innerHTML = snap.docs.map((d) => {
+      const r = d.data();
+      return `<tr><td>${formatDate(r.createdAt)}</td><td><span class="badge badge--${r.status === "credited" ? "completed" : "pending"}">${escapeHTML(r.status || "pending")}</span></td><td>${formatCurrency(r.bonusAmount || 0)}</td></tr>`;
+    }).join("");
+  } catch {
+    body.innerHTML = "";
+    emptyEl.hidden = false;
+  }
+}
+
+$("#copyReferralBtn")?.addEventListener("click", () => copyToClipboard($("#referralCodeValue").textContent, "Referral code copied."));
+$("#copyReferralLinkBtn")?.addEventListener("click", () => copyToClipboard($("#referralLinkValue").textContent, "Referral link copied."));
+
+async function copyToClipboard(text, message) {
+  try {
+    await navigator.clipboard.writeText(text);
+    toast(message, "success");
+  } catch {
+    toast("Couldn't copy — copy it manually.", "error");
+  }
+}
