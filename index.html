@@ -415,4 +415,185 @@
       <div class="wallet-balance-card glass">
         <span>Current balance</span>
         <strong id="walletBalanceLarge">R0.00</strong>
-        <p class="text-muted">Funds are only add
+        <p class="text-muted">Funds are only added after a deposit is verified — see <a href="#/deposit" data-nav>Deposit</a>.</p>
+      </div>
+
+      <div class="panel glass">
+        <div class="panel__head">
+          <h2>Transaction history</h2>
+          <div class="chip-filter" id="txFilter" role="tablist">
+            <button type="button" class="chip is-active" data-filter="all">All</button>
+            <button type="button" class="chip" data-filter="deposit">Deposits</button>
+            <button type="button" class="chip" data-filter="order">Orders</button>
+            <button type="button" class="chip" data-filter="refund">Refunds</button>
+            <button type="button" class="chip" data-filter="referral_bonus">Referral</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table" id="walletTxTable">
+            <thead>
+              <tr><th>Date</th><th>Type</th><th>Description</th><th>Amount</th><th>Balance after</th><th>Status</th></tr>
+            </thead>
+            <tbody id="walletTxBody"></tbody>
+          </table>
+        </div>
+        <p class="empty-state" id="walletTxEmpty" hidden>No transactions yet — your history will show up here.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ---------------- DEPOSIT (protected) ---------------- -->
+  <section class="view" id="view-deposit" data-view="deposit" data-protected="true">
+    <div class="container container--narrow">
+      <div class="page-head">
+        <h1>Deposit funds</h1>
+      </div>
+      <p class="notice-box">
+        Deposits are matched against your payment reference automatically. If a match can't be verified within a few minutes, our team reviews it manually — your wallet is only credited once the deposit is confirmed.
+      </p>
+
+      <form id="depositForm" class="panel glass" novalidate>
+        <div class="field">
+          <label for="depositMethod">Payment method</label>
+          <select id="depositMethod" name="method" required>
+            <option value="" disabled selected>Select a payment method</option>
+          </select>
+          <p class="field__hint" id="depositMethodInstructions"></p>
+        </div>
+        <div class="field">
+          <label for="depositAmount">Amount (R)</label>
+          <input type="number" id="depositAmount" name="amount" min="10" step="0.01" required />
+          <span class="field__error" data-error-for="depositAmount"></span>
+        </div>
+        <div class="field">
+          <label for="depositTxId">Transaction reference / ID</label>
+          <input type="text" id="depositTxId" name="transactionId" required />
+          <span class="field__hint">The reference number shown on your payment confirmation.</span>
+          <span class="field__error" data-error-for="depositTxId"></span>
+        </div>
+        <div class="field">
+          <label for="depositScreenshot">Payment screenshot <span class="field__optional">(optional)</span></label>
+          <input type="file" id="depositScreenshot" name="screenshot" accept="image/*" />
+        </div>
+        <button type="submit" class="btn btn--primary btn--block" id="depositSubmitBtn">
+          <span class="btn__label">Submit deposit</span>
+          <span class="btn__spinner" hidden></span>
+        </button>
+      </form>
+
+      <div class="panel glass">
+        <div class="panel__head"><h2>Recent deposits</h2></div>
+        <div class="table-wrap">
+          <table class="data-table" id="depositHistoryTable">
+            <thead><tr><th>Date</th><th>Method</th><th>Reference</th><th>Amount</th><th>Status</th></tr></thead>
+            <tbody id="depositHistoryBody"></tbody>
+          </table>
+        </div>
+        <p class="empty-state" id="depositHistoryEmpty" hidden>No deposits submitted yet.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ---------------- SHOP: games grid ---------------- -->
+  <section class="view" id="view-shop" data-view="shop">
+    <div class="container">
+      <div class="page-head">
+        <h1>Shop</h1>
+      </div>
+      <div class="shop-toolbar">
+        <div class="search-input">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          <input type="search" id="shopSearch" placeholder="Search games…" aria-label="Search games" />
+        </div>
+        <div class="chip-filter" id="shopCategoryFilter" role="tablist">
+          <button type="button" class="chip is-active" data-category="all">All</button>
+        </div>
+      </div>
+      <div class="game-grid" id="shopGameGrid" aria-live="polite"></div>
+      <p class="empty-state" id="shopEmpty" hidden>No games match your search yet — try another term.</p>
+    </div>
+  </section>
+
+  <!-- ---------------- GAME PRODUCTS ---------------- -->
+  <section class="view" id="view-game" data-view="game">
+    <div class="container">
+      <a href="#/shop" data-nav class="link-arrow link-arrow--back">← Back to shop</a>
+      <div class="game-header" id="gameHeader">
+        <img id="gameHeaderImage" src="" alt="" />
+        <div>
+          <h1 id="gameHeaderName">—</h1>
+          <p id="gameHeaderCategory" class="text-muted">—</p>
+        </div>
+      </div>
+      <div class="product-grid" id="productGrid" aria-live="polite"></div>
+      <p class="empty-state" id="productEmpty" hidden>No products are available for this game right now.</p>
+    </div>
+  </section>
+
+  <!-- ---------------- ORDER FORM (protected to submit) ---------------- -->
+  <section class="view" id="view-order" data-view="order">
+    <div class="container container--narrow">
+      <a href="#/shop" data-nav class="link-arrow link-arrow--back">← Back to shop</a>
+      <div class="order-layout">
+        <form id="orderForm" class="panel glass" novalidate>
+          <h1 id="orderProductName">Place order</h1>
+          <div class="field">
+            <label for="orderPlayerUID">Player UID / ID</label>
+            <input type="text" id="orderPlayerUID" name="playerUID" required />
+            <span class="field__error" data-error-for="orderPlayerUID"></span>
+          </div>
+          <div class="field" id="orderServerField">
+            <label for="orderServerID">Server ID <span class="field__optional">(optional)</span></label>
+            <input type="text" id="orderServerID" name="serverID" />
+          </div>
+          <div class="field" id="orderNicknameField" hidden>
+            <label for="orderNickname">Player nickname</label>
+            <input type="text" id="orderNickname" name="playerNickname" readonly placeholder="Verify UID to fetch nickname" />
+          </div>
+          <div class="field">
+            <label for="orderQuantity">Quantity</label>
+            <input type="number" id="orderQuantity" name="quantity" min="1" step="1" value="1" required />
+          </div>
+          <div class="field">
+            <label for="orderCoupon">Coupon code <span class="field__optional">(optional)</span></label>
+            <div class="field__with-action">
+              <input type="text" id="orderCoupon" name="couponCode" autocomplete="off" />
+              <button type="button" class="btn btn--outline btn--sm" id="applyCouponBtn">Apply</button>
+            </div>
+            <span class="field__hint" id="couponFeedback"></span>
+          </div>
+          <div class="field">
+            <label class="checkbox">
+              <input type="checkbox" id="orderConfirm" name="confirm" required />
+              <span>I've double-checked my Player UID and understand top-ups cannot be reversed once delivered.</span>
+            </label>
+            <span class="field__error" data-error-for="orderConfirm"></span>
+          </div>
+          <div class="price-summary">
+            <div><span>Price</span><span id="summaryPrice">R0.00</span></div>
+            <div><span>Quantity</span><span id="summaryQty">×1</span></div>
+            <div><span>Discount</span><span id="summaryDiscount">−R0.00</span></div>
+            <div class="price-summary__total"><span>Total</span><span id="summaryTotal">R0.00</span></div>
+            <div class="price-summary__wallet"><span>Wallet balance</span><span id="summaryWallet">R0.00</span></div>
+          </div>
+          <p class="field__error field__error--block" id="insufficientWarning" hidden>
+            Your wallet balance is too low for this order. <a href="#/deposit" data-nav>Deposit funds</a> to continue.
+          </p>
+          <button type="submit" class="btn btn--primary btn--block" id="placeOrderBtn">
+            <span class="btn__label">Place order</span>
+            <span class="btn__spinner" hidden></span>
+          </button>
+        </form>
+
+        <aside class="order-product-card glass">
+          <img id="orderProductImage" src="" alt="" />
+          <h2 id="orderProductTitle">—</h2>
+          <p id="orderProductDescription" class="text-muted">—</p>
+          <p class="order-product-card__bonus" id="orderProductBonus" hidden></p>
+          <p class="order-product-card__price" id="orderProductPrice">R0.00</p>
+        </aside>
+      </div>
+    </div>
+  </section>
+
+  <!-- ---------------- ORDER HISTORY (protected) ---------------- -->
