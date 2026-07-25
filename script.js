@@ -620,3 +620,584 @@ onAuthStateChanged(
 /* =============================================================================
    6. DASHBOARD
 ============================================================================= */
+function loadDashboard() {
+  const p = state.profile;
+  if (!p) return;
+  $("#dashAvatar").src = p.photoURL || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(p.fullName || "U")}`;
+  $("#dashName").textContent = `Welcome back, ${p.fullName || "there"}`;
+  $("#dashEmail").textContent = p.email || "";
+  $("#statWallet").textContent = formatCurrency(state.wallet.balance || 0);
+  $("#statTotalOrders").textContent = p.totalOrders || 0;
+  $("#statPendingOrders").textContent = p.pendingOrders || 0;
+  $("#statCompletedOrders").textContent = p.completedOrders || 0;
+  $("#statCancelledOrders").textContent = p.cancelledOrders || 0;
+  $("#statReferralEarnings").textContent = formatCurrency(p.referralEarnings || 0);
+
+  renderDashboardRecentOrders();
+  renderDashboardNotifications();
+}
+
+async function renderDashboardRecentOrders() {
+  const container = $("#dashRecentOrders");
+  container.innerHTML = `<div class="skeleton" style="height:52px;margin-bottom:10px;"></div>`.repeat(3);
+  try {
+    const q = query(
+      collection(db, COLLECTIONS.orders),
+      where("uid", "==", state.user.uid),
+      orderBy("createdAt", "desc"),
+      limit(4)
+    );
+    const snap = await getDocs(q);
+    if (snap.empty) {
+      container.innerHTML = `<p class="empty-state">No orders yet — <a href="#/shop" data-nav>browse the shop</a>.</p>`;
+      return;
+    }
+    container.innerHTML = "";
+    snap.docs.forEach((d) => container.appendChild(buildOrderRow({ id: d.id, ...d.data() })));
+  } catch {
+    container.innerHTML = `<p class="empty-state">Couldn't load recent orders.</p>`;
+  }
+}
+
+function renderDashboardNotifications() {
+  const container = $("#dashRecentNotifications");
+  const items = state.notifications.slice(0, 4);
+  if (!items.length) {
+    container.innerHTML = `<p class="empty-state">You're all caught up.</p>`;
+    return;
+  }
+  container.innerHTML = "";
+  items.forEach((n) => container.appendChild(buildNotifRow(n)));
+}
+
+/* =============================================================================
+   7. WALLET & TRANSACTION HISTORY
+============================================================================= */
+async function loadWalletHistory(filterType = "all") {
+  $("#walletBalanceLarge").textContent = formatCurrency(state.wallet.balance || 0);
+  const body = $("#walletTxBody");
+  const emptyEl = $("#walletTxEmpty");
+  body.innerHTML = `<tr><td colspan="6"><div class="skeleton" style="height:20px;"></div></td></tr>`;
+  try {
+    let q = query(
+      collection(db, COLLECTIONS.transactions),
+      where("uid", "==", state.user.uid),
+      orderBy("createdAt", "desc"),
+      limit(50)
+    );
+    const snap = await getDocs(q);
+    let docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    if (filterType !== "all") docs = docs.filter((tx) => tx.type === filterType);
+
+    if (!docs.length) {
+      body.innerHTML = "";
+      emptyEl.hidden = false;
+      return;
+    }
+    emptyEl.hidden = true;
+    body.innerHTML = docs.map((tx) => `
+      <tr>
+        <td>${formatDate(tx.createdAt)}</td>
+        <td>${escapeHTML(txTypeLabel(tx.type))}</td>
+        <td>${escapeHTML(tx.note || "—")}</td>
+        <td style="color:${tx.amount < 0 ? "var(--danger)" : "var(--success)"}">${tx.amount < 0 ? "−" : "+"}${formatCurrency(Math.abs(tx.amount))}</td>
+        <td>${formatCurrency(tx.balanceAfter ?? 0)}</td>
+        <td><span class="badge badge--${badgeClassForTxStatus(tx.status)}">${escapeHTML(tx.status || "completed")}</span></td>
+      </tr>
+    `).join("");
+  } catch {
+    body.innerHTML = "";
+    emptyEl.hidden = false;
+    emptyEl.textContent = "Couldn't load your transaction history.";
+  }
+}
+
+function txTypeLabel(type) {
+  return { deposit: "Deposit", order: "Order", refund: "Refund", referral_bonus: "Referral bonus" }[type] || type;
+}
+function badgeClassForTxStatus(status) {
+  return { pending_review: "pending", completed: "completed", rejected: "cancelled" }[status] || "processing";
+}
+
+$("#txFilter").addEventListener("click", (e) => {
+  const btn = e.target.closest(".chip");
+  if (!btn) return;
+  $all(".chip", "#txFilter").forEach((c) => c.classList.remove("is-active"));
+  btn.classList.add("is-active");
+  loadWalletHistory(btn.dataset.filter);
+});
+
+/* =============================================================================
+   8. DEPOSITS
+============================================================================= */
+async function loadDepositView() {
+  await loadPaymentMethods();
+  await loadDepositHistory();
+}
+
+async function loadPaymentMethods() {
+  const select = $("#depositMethod");
+  try {
+    const q = query(collection(db, COLLECTIONS.paymentMethods), where("active", "==", true));
+    const snap = await getDocs(q);
+    state.paymentMethods = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    select.innerHTML = `<option value="" disabled selected>Select a payment method</option>` +
+      state.paymentMethods.map((m) => `<option value="${escapeHTML(m.id)}">${escapeHTML(m.name)}</option>`).join("");
+  } catch {
+    select.innerHTML = `<option value="" disabled selected>Unable to load payment methods</option>`;
+  }
+}
+
+$("#depositMethod").addEventListener("change", (e) => {
+  const method = state.paymentMethods.find((m) => m.id === e.target.value);
+  $("#depositMethodInstructions").textContent = method?.instructions || "";
+});
+
+async function loadDepositHistory() {
+  const body = $("#depositHistoryBody");
+  const emptyEl = $("#depositHistoryEmpty");
+  body.innerHTML = `<tr><td colspan="5"><div class="skeleton" style="height:20px;"></div></td></tr>`;
+  try {
+    const q = query(
+      collection(db, COLLECTIONS.transactions),
+      where("uid", "==", state.user.uid),
+      where("type", "==", "deposit"),
+      orderBy("createdAt", "desc"),
+      limit(20)
+    );
+    const snap = await getDocs(q);
+    if (snap.empty) {
+      body.innerHTML = "";
+      emptyEl.hidden = false;
+      return;
+    }
+    emptyEl.hidden = true;
+    body.innerHTML = snap.docs.map((d) => {
+      const tx = d.data();
+      return `
+        <tr>
+          <td>${formatDate(tx.createdAt)}</td>
+          <td>${escapeHTML(tx.methodName || tx.method || "—")}</td>
+          <td>${escapeHTML(tx.transactionId || "—")}</td>
+          <td>${formatCurrency(tx.amount)}</td>
+          <td><span class="badge badge--${badgeClassForTxStatus(tx.status)}">${escapeHTML((tx.status || "pending_review").replace("_", " "))}</span></td>
+        </tr>`;
+    }).join("");
+  } catch {
+    body.innerHTML = "";
+    emptyEl.hidden = false;
+  }
+}
+
+async function handleDepositSubmit(e) {
+  e.preventDefault();
+  const form = e.target;
+  clearFormErrors(form);
+  const methodId = $("#depositMethod").value;
+  const amount = parseFloat($("#depositAmount").value);
+  const transactionId = sanitizeInput($("#depositTxId").value);
+  const fileInput = $("#depositScreenshot");
+
+  let hasError = false;
+  if (!methodId) { toast("Select a payment method.", "error"); hasError = true; }
+  if (!amount || amount < APP_CONFIG.minDepositAmount) {
+    setFieldError("depositAmount", `Minimum deposit is ${formatCurrency(APP_CONFIG.minDepositAmount)}.`);
+    hasError = true;
+  }
+  if (!transactionId) { setFieldError("depositTxId", "Enter your payment reference."); hasError = true; }
+  if (hasError) return;
+
+  const btn = $("#depositSubmitBtn");
+  setButtonLoading(btn, true);
+  try {
+    // Best-effort duplicate check — the authoritative check must live in
+    // Security Rules / the verification backend, since this read can be
+    // bypassed by a malicious client.
+    const dupQuery = query(
+      collection(db, COLLECTIONS.transactions),
+      where("type", "==", "deposit"),
+      where("transactionId", "==", transactionId)
+    );
+    const dupSnap = await getDocs(dupQuery);
+    if (!dupSnap.empty) {
+      setFieldError("depositTxId", "This transaction ID has already been submitted.");
+      setButtonLoading(btn, false);
+      return;
+    }
+
+    let screenshotURL = "";
+    if (fileInput.files[0]) {
+      const file = fileInput.files[0];
+      const path = `deposits/${state.user.uid}/${Date.now()}_${file.name}`;
+      const ref = storageRef(storage, path);
+      await uploadBytes(ref, file);
+      screenshotURL = await getDownloadURL(ref);
+    }
+
+    const method = state.paymentMethods.find((m) => m.id === methodId);
+    await addDoc(collection(db, COLLECTIONS.transactions), {
+      uid: state.user.uid,
+      type: "deposit",
+      amount,
+      balanceAfter: null, // set only once verified & credited
+      method: methodId,
+      methodName: method?.name || "",
+      transactionId,
+      screenshotURL,
+      status: "pending_review", // automatic verification / admin review happens server-side
+      createdAt: serverTimestamp(),
+    });
+    await logAudit("deposit_submitted", { amount, methodId, transactionId });
+
+    toast("Deposit submitted — your wallet will update once it's verified.", "success");
+    form.reset();
+    loadDepositHistory();
+  } catch (err) {
+    toast(err.message || "Couldn't submit your deposit. Try again.", "error");
+  } finally {
+    setButtonLoading(btn, false);
+  }
+}
+
+/* =============================================================================
+   9. GAMES / CATEGORIES / PRODUCTS (SHOP)
+============================================================================= */
+async function loadCategories() {
+  try {
+    const snap = await getDocs(collection(db, COLLECTIONS.categories));
+    state.categories = snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+    const filterEl = $("#shopCategoryFilter");
+    filterEl.innerHTML = `<button type="button" class="chip is-active" data-category="all">All</button>` +
+      state.categories.map((c) => `<button type="button" class="chip" data-category="${escapeHTML(c.id)}">${escapeHTML(c.name)}</button>`).join("");
+  } catch { /* categories are optional */ }
+}
+
+async function loadGamesForView(viewName) {
+  const gridId = viewName === "home" ? "#homeGameGrid" : "#shopGameGrid";
+  const grid = $(gridId);
+  grid.innerHTML = `<div class="skeleton skeleton--card"></div>`.repeat(viewName === "home" ? 6 : 8);
+
+  try {
+    if (!state.games.length) {
+      const q = query(collection(db, COLLECTIONS.games), where("status", "==", "active"));
+      const snap = await getDocs(q);
+      state.games = snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+    }
+    if (viewName === "shop") await loadCategories();
+
+    const games = viewName === "home" ? state.games.slice(0, 6) : state.games;
+    renderGameGrid(games, grid);
+
+    if (viewName === "shop") {
+      $("#shopSearch").oninput = debounce(() => filterShopGrid(), 220);
+      $("#shopCategoryFilter").onclick = (e) => {
+        const chip = e.target.closest(".chip");
+        if (!chip) return;
+        $all(".chip", "#shopCategoryFilter").forEach((c) => c.classList.remove("is-active"));
+        chip.classList.add("is-active");
+        filterShopGrid();
+      };
+    }
+  } catch {
+    grid.innerHTML = "";
+    toast("Couldn't load games right now.", "error");
+  }
+}
+
+function renderGameGrid(games, grid) {
+  if (!games.length) {
+    grid.innerHTML = "";
+    return;
+  }
+  grid.innerHTML = games.map((g) => `
+    <a href="#/game/${escapeHTML(g.id)}" data-nav class="game-card" data-name="${escapeHTML((g.name || "").toLowerCase())}" data-category="${escapeHTML(g.category || "")}">
+      <img class="game-card__image" src="${escapeHTML(g.image || g.icon || "")}" alt="${escapeHTML(g.name || "")}" loading="lazy" />
+      <div class="game-card__body">
+        <p class="game-card__name">${escapeHTML(g.name || "Untitled")}</p>
+        <p class="game-card__category">${escapeHTML(g.category || "")}</p>
+      </div>
+    </a>
+  `).join("");
+}
+
+function filterShopGrid() {
+  const term = $("#shopSearch").value.trim().toLowerCase();
+  const activeCategory = $(".chip.is-active", "#shopCategoryFilter")?.dataset.category || "all";
+  let games = state.games;
+  if (activeCategory !== "all") games = games.filter((g) => g.category === activeCategory);
+  if (term) games = games.filter((g) => (g.name || "").toLowerCase().includes(term));
+  renderGameGrid(games, $("#shopGameGrid"));
+  $("#shopEmpty").hidden = games.length !== 0;
+}
+
+async function loadGameProducts(gameId) {
+  const grid = $("#productGrid");
+  grid.innerHTML = `<div class="skeleton skeleton--card"></div>`.repeat(6);
+  $("#productEmpty").hidden = true;
+
+  try {
+    let game = state.games.find((g) => g.id === gameId);
+    if (!game) {
+      const gSnap = await getDoc(doc(db, COLLECTIONS.games, gameId));
+      if (gSnap.exists()) game = { id: gSnap.id, ...gSnap.data() };
+    }
+    if (!game) {
+      navigate("/shop");
+      return;
+    }
+    state.selectedGame = game;
+    $("#gameHeaderImage").src = game.image || game.icon || "";
+    $("#gameHeaderImage").alt = game.name || "";
+    $("#gameHeaderName").textContent = game.name || "Untitled";
+    $("#gameHeaderCategory").textContent = game.category || "";
+
+    const q = query(collection(db, COLLECTIONS.products), where("gameId", "==", gameId), where("status", "==", "active"));
+    const snap = await getDocs(q);
+    const products = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+    if (!products.length) {
+      grid.innerHTML = "";
+      $("#productEmpty").hidden = false;
+      return;
+    }
+    grid.innerHTML = products.map((p) => `
+      <div class="product-card">
+        <img class="product-card__image" src="${escapeHTML(p.image || "")}" alt="${escapeHTML(p.name || "")}" loading="lazy" />
+        <p class="product-card__name">${escapeHTML(p.name || "Package")}</p>
+        ${p.bonus ? `<p class="product-card__bonus">+${escapeHTML(p.bonus)} bonus</p>` : ""}
+        <p class="product-card__price">${formatCurrency(p.price || 0)}</p>
+        <a href="#/order/${escapeHTML(p.id)}" data-nav class="btn btn--primary btn--sm">Buy now</a>
+      </div>
+    `).join("");
+  } catch {
+    grid.innerHTML = "";
+    toast("Couldn't load products for this game.", "error");
+  }
+}
+
+/* =============================================================================
+   10. ORDER FORM & PLACEMENT
+============================================================================= */
+async function loadOrderView(productId) {
+  const form = $("#orderForm");
+  form.reset();
+  state.appliedCoupon = null;
+  $("#couponFeedback").textContent = "";
+  $("#insufficientWarning").hidden = true;
+
+  try {
+    let product = state.products.find((p) => p.id === productId);
+    if (!product) {
+      const pSnap = await getDoc(doc(db, COLLECTIONS.products, productId));
+      if (pSnap.exists()) product = { id: pSnap.id, ...pSnap.data() };
+    }
+    if (!product) {
+      toast("That product isn't available anymore.", "error");
+      navigate("/shop");
+      return;
+    }
+    state.selectedProduct = product;
+
+    let game = state.games.find((g) => g.id === product.gameId);
+    if (!game) {
+      const gSnap = await getDoc(doc(db, COLLECTIONS.games, product.gameId));
+      if (gSnap.exists()) game = { id: gSnap.id, ...gSnap.data() };
+    }
+    state.selectedGame = game;
+
+    $("#orderProductName").textContent = `Order ${product.name}`;
+    $("#orderProductTitle").textContent = product.name || "";
+    $("#orderProductDescription").textContent = product.description || "";
+    $("#orderProductImage").src = product.image || "";
+    $("#orderProductImage").alt = product.name || "";
+    $("#orderProductPrice").textContent = formatCurrency(product.price || 0);
+    if (product.bonus) {
+      $("#orderProductBonus").textContent = `+${product.bonus} bonus`;
+      $("#orderProductBonus").hidden = false;
+    } else {
+      $("#orderProductBonus").hidden = true;
+    }
+    $("#orderNicknameField").hidden = !(game && game.nicknameLookupEnabled);
+
+    updateOrderSummary();
+  } catch {
+    toast("Couldn't load this product.", "error");
+    navigate("/shop");
+  }
+}
+
+function computeDiscount(coupon, subtotal) {
+  if (!coupon) return 0;
+  let discount = coupon.type === "percentage" ? subtotal * (coupon.value / 100) : coupon.value;
+  return Math.min(round2(discount), subtotal);
+}
+
+function updateOrderSummary() {
+  const product = state.selectedProduct;
+  if (!product) return;
+  const qty = Math.max(1, parseInt($("#orderQuantity").value, 10) || 1);
+  const subtotal = round2((product.price || 0) * qty);
+  const discount = state.appliedCoupon ? computeDiscount(state.appliedCoupon, subtotal) : 0;
+  const total = round2(subtotal - discount);
+  const balance = state.wallet.balance || 0;
+
+  $("#summaryPrice").textContent = formatCurrency(product.price || 0);
+  $("#summaryQty").textContent = `×${qty}`;
+  $("#summaryDiscount").textContent = `−${formatCurrency(discount)}`;
+  $("#summaryTotal").textContent = formatCurrency(total);
+  $("#summaryWallet").textContent = formatCurrency(balance);
+
+  const insufficient = balance < total;
+  $("#insufficientWarning").hidden = !insufficient;
+  $("#placeOrderBtn").disabled = insufficient;
+}
+
+$("#orderQuantity")?.addEventListener("input", updateOrderSummary);
+
+async function handleApplyCoupon() {
+  const codeInput = sanitizeInput($("#orderCoupon").value).toUpperCase();
+  const feedback = $("#couponFeedback");
+  if (!codeInput) {
+    state.appliedCoupon = null;
+    feedback.textContent = "";
+    updateOrderSummary();
+    return;
+  }
+  try {
+    const q = query(collection(db, COLLECTIONS.coupons), where("code", "==", codeInput), limit(1));
+    const snap = await getDocs(q);
+    if (snap.empty) {
+      state.appliedCoupon = null;
+      feedback.textContent = "Coupon code not found.";
+      updateOrderSummary();
+      return;
+    }
+    const coupon = { id: snap.docs[0].id, ...snap.docs[0].data() };
+    const product = state.selectedProduct;
+    const qty = Math.max(1, parseInt($("#orderQuantity").value, 10) || 1);
+    const subtotal = round2((product.price || 0) * qty);
+
+    if (coupon.active === false) throw new Error("This coupon is no longer active.");
+    if (coupon.expiry && coupon.expiry.toDate && coupon.expiry.toDate() < new Date()) throw new Error("This coupon has expired.");
+    if (coupon.usageLimit && (coupon.usedCount || 0) >= coupon.usageLimit) throw new Error("This coupon has reached its usage limit.");
+    if (coupon.minPurchase && subtotal < coupon.minPurchase) throw new Error(`Minimum purchase for this coupon is ${formatCurrency(coupon.minPurchase)}.`);
+
+    state.appliedCoupon = coupon;
+    feedback.textContent = `Coupon applied — ${coupon.type === "percentage" ? `${coupon.value}% off` : `${formatCurrency(coupon.value)} off`}.`;
+    updateOrderSummary();
+  } catch (err) {
+    state.appliedCoupon = null;
+    feedback.textContent = err.message || "Couldn't apply this coupon.";
+    updateOrderSummary();
+  }
+}
+
+async function placeOrderTransaction({ uid, product, game, quantity, coupon, playerUID, serverID, playerNickname }) {
+  const userRef = doc(db, COLLECTIONS.users, uid);
+  const walletRef = doc(db, COLLECTIONS.wallets, uid);
+  const orderRef = doc(collection(db, COLLECTIONS.orders));
+  const txRef = doc(collection(db, COLLECTIONS.transactions));
+  const couponRef = coupon ? doc(db, COLLECTIONS.coupons, coupon.id) : null;
+
+  return runTransaction(db, async (trx) => {
+    const [walletSnap, userSnap] = await Promise.all([trx.get(walletRef), trx.get(userRef)]);
+    if (!walletSnap.exists() || !userSnap.exists()) throw new Error("Your account couldn't be found. Please log in again.");
+
+    const balance = walletSnap.data().balance || 0;
+    const subtotal = round2((product.price || 0) * quantity);
+    const discount = coupon ? computeDiscount(coupon, subtotal) : 0;
+    const total = round2(subtotal - discount);
+
+    if (balance < total) throw new Error("INSUFFICIENT_BALANCE");
+    if (total < 0) throw new Error("Order total is invalid.");
+
+    const newBalance = round2(balance - total);
+
+    trx.update(walletRef, { balance: newBalance, updatedAt: serverTimestamp() });
+    trx.update(userRef, {
+      walletBalance: newBalance,
+      totalOrders: increment(1),
+      pendingOrders: increment(1),
+    });
+    trx.set(orderRef, {
+      uid,
+      gameId: game?.id || product.gameId,
+      gameName: game?.name || "",
+      productId: product.id,
+      productName: product.name,
+      playerUID,
+      serverID: serverID || "",
+      playerNickname: playerNickname || "",
+      quantity,
+      unitPrice: product.price || 0,
+      subtotal,
+      discount,
+      total,
+      couponCode: coupon ? coupon.code : "",
+      status: "pending",
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+    trx.set(txRef, {
+      uid,
+      type: "order",
+      amount: -total,
+      balanceAfter: newBalance,
+      status: "completed",
+      note: `Order — ${product.name}`,
+      orderId: orderRef.id,
+      createdAt: serverTimestamp(),
+    });
+    if (couponRef) trx.update(couponRef, { usedCount: increment(1) });
+
+    return { orderId: orderRef.id };
+  });
+}
+
+async function handlePlaceOrder(e) {
+  e.preventDefault();
+  const form = e.target;
+  clearFormErrors(form);
+
+  const playerUID = sanitizeInput($("#orderPlayerUID").value);
+  const serverID = sanitizeInput($("#orderServerID").value);
+  const playerNickname = sanitizeInput($("#orderNickname").value);
+  const quantity = Math.max(1, parseInt($("#orderQuantity").value, 10) || 1);
+  const confirmed = $("#orderConfirm").checked;
+
+  let hasError = false;
+  if (!playerUID) { setFieldError("orderPlayerUID", "Player UID is required."); hasError = true; }
+  if (!confirmed) { setFieldError("orderConfirm", "Please confirm before placing your order."); hasError = true; }
+  if (hasError) return;
+
+  const btn = $("#placeOrderBtn");
+  setButtonLoading(btn, true);
+  try {
+    const result = await placeOrderTransaction({
+      uid: state.user.uid,
+      product: state.selectedProduct,
+      game: state.selectedGame,
+      quantity,
+      coupon: state.appliedCoupon,
+      playerUID,
+      serverID,
+      playerNickname,
+    });
+    await logAudit("order_placed", { orderId: result.orderId, productId: state.selectedProduct.id });
+    toast("Order placed! Track its status in Order history.", "success");
+    navigate("/orders");
+  } catch (err) {
+    if (err.message === "INSUFFICIENT_BALANCE") {
+      $("#insufficientWarning").hidden = false;
+      toast("Your wallet balance is too low for this order.", "error");
+    } else {
+      toast(err.message || "Couldn't place your order. Try again.", "error");
+    }
+  } finally {
+    setButtonLoading(btn, false);
+  }
+}
+
+/* =============================================================================
+   11. ORDER HISTORY
+============================================================================= */
