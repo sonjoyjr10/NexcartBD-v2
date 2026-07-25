@@ -48,8 +48,43 @@
     <span class="app-loader__ring"></span>
     <span class="app-loader__ring app-loader__ring--delay"></span>
   </div>
-  <p class="app-loader__text">Loading SA Topup Zone…</p>
+  <p class="app-loader__text" id="appLoaderText">Loading SA Topup Zone…</p>
 </div>
+
+<!--
+  BOOT WATCHDOG — plain script (NOT type="module"), so it runs even if
+  script.js or config.js fail to load entirely (e.g. missing file, 404,
+  bad Firebase config, or no network). Without this, any such failure
+  leaves the loader spinning forever with no visible clue why.
+-->
+<script>
+  window.saTopupShowBootError = function (message) {
+    var loader = document.getElementById("appLoader");
+    if (!loader) return;
+    loader.classList.remove("is-hidden");
+    loader.innerHTML =
+      '<div style="max-width:340px;text-align:center;padding:24px;">' +
+      '<p style="color:#F16565;font-weight:700;font-size:15px;margin-bottom:10px;">Couldn\'t load the app</p>' +
+      '<p style="font-size:13px;color:#A9C2B8;line-height:1.5;word-break:break-word;">' + message + '</p>' +
+      '<p style="font-size:12px;color:#6F8B80;margin-top:14px;">Check: config.js exists in the same folder as script.js, filenames are exact lowercase, and your Firebase config values are real (not placeholders).</p>' +
+      "</div>";
+  };
+
+  window.__saTopupBootTimeout = setTimeout(function () {
+    if (!window.__saTopupScriptLoaded) {
+      window.saTopupShowBootError("script.js never finished loading — likely config.js is missing/misnamed in the repo, or the connection is too slow/blocked.");
+    } else if (!window.__saTopupAuthResolved) {
+      window.saTopupShowBootError("Firebase never responded — check that config.js has your real project keys (not placeholders) and that Authentication is enabled in the Firebase Console.");
+    }
+  }, 9000);
+
+  window.onerror = function (msg, url, line) {
+    window.saTopupShowBootError(msg + " (" + url + ":" + line + ")");
+  };
+  window.addEventListener("unhandledrejection", function (e) {
+    window.saTopupShowBootError((e.reason && e.reason.message) || String(e.reason));
+  });
+</script>
 
 <!-- ==================================================================
      TOASTS
@@ -380,443 +415,4 @@
       <div class="wallet-balance-card glass">
         <span>Current balance</span>
         <strong id="walletBalanceLarge">R0.00</strong>
-        <p class="text-muted">Funds are only added after a deposit is verified — see <a href="#/deposit" data-nav>Deposit</a>.</p>
-      </div>
-
-      <div class="panel glass">
-        <div class="panel__head">
-          <h2>Transaction history</h2>
-          <div class="chip-filter" id="txFilter" role="tablist">
-            <button type="button" class="chip is-active" data-filter="all">All</button>
-            <button type="button" class="chip" data-filter="deposit">Deposits</button>
-            <button type="button" class="chip" data-filter="order">Orders</button>
-            <button type="button" class="chip" data-filter="refund">Refunds</button>
-            <button type="button" class="chip" data-filter="referral_bonus">Referral</button>
-          </div>
-        </div>
-        <div class="table-wrap">
-          <table class="data-table" id="walletTxTable">
-            <thead>
-              <tr><th>Date</th><th>Type</th><th>Description</th><th>Amount</th><th>Balance after</th><th>Status</th></tr>
-            </thead>
-            <tbody id="walletTxBody"></tbody>
-          </table>
-        </div>
-        <p class="empty-state" id="walletTxEmpty" hidden>No transactions yet — your history will show up here.</p>
-      </div>
-    </div>
-  </section>
-
-  <!-- ---------------- DEPOSIT (protected) ---------------- -->
-    <section class="view" id="view-deposit" data-view="deposit" data-protected="true">
-    <div class="container container--narrow">
-      <div class="page-head">
-        <h1>Deposit funds</h1>
-      </div>
-      <p class="notice-box">
-        Deposits are matched against your payment reference automatically. If a match can't be verified within a few minutes, our team reviews it manually — your wallet is only credited once the deposit is confirmed.
-      </p>
-
-      <form id="depositForm" class="panel glass" novalidate>
-        <div class="field">
-          <label for="depositMethod">Payment method</label>
-          <select id="depositMethod" name="method" required>
-            <option value="" disabled selected>Select a payment method</option>
-          </select>
-          <p class="field__hint" id="depositMethodInstructions"></p>
-        </div>
-        <div class="field">
-          <label for="depositAmount">Amount (R)</label>
-          <input type="number" id="depositAmount" name="amount" min="10" step="0.01" required />
-          <span class="field__error" data-error-for="depositAmount"></span>
-        </div>
-        <div class="field">
-          <label for="depositTxId">Transaction reference / ID</label>
-          <input type="text" id="depositTxId" name="transactionId" required />
-          <span class="field__hint">The reference number shown on your payment confirmation.</span>
-          <span class="field__error" data-error-for="depositTxId"></span>
-        </div>
-        <div class="field">
-          <label for="depositScreenshot">Payment screenshot <span class="field__optional">(optional)</span></label>
-          <input type="file" id="depositScreenshot" name="screenshot" accept="image/*" />
-        </div>
-        <button type="submit" class="btn btn--primary btn--block" id="depositSubmitBtn">
-          <span class="btn__label">Submit deposit</span>
-          <span class="btn__spinner" hidden></span>
-        </button>
-      </form>
-
-      <div class="panel glass">
-        <div class="panel__head"><h2>Recent deposits</h2></div>
-        <div class="table-wrap">
-          <table class="data-table" id="depositHistoryTable">
-            <thead><tr><th>Date</th><th>Method</th><th>Reference</th><th>Amount</th><th>Status</th></tr></thead>
-            <tbody id="depositHistoryBody"></tbody>
-          </table>
-        </div>
-        <p class="empty-state" id="depositHistoryEmpty" hidden>No deposits submitted yet.</p>
-      </div>
-    </div>
-  </section>
-
-  <!-- ---------------- SHOP: games grid ---------------- -->
-  <section class="view" id="view-shop" data-view="shop">
-    <div class="container">
-      <div class="page-head">
-        <h1>Shop</h1>
-      </div>
-      <div class="shop-toolbar">
-        <div class="search-input">
-          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
-          <input type="search" id="shopSearch" placeholder="Search games…" aria-label="Search games" />
-        </div>
-        <div class="chip-filter" id="shopCategoryFilter" role="tablist">
-          <button type="button" class="chip is-active" data-category="all">All</button>
-        </div>
-      </div>
-      <div class="game-grid" id="shopGameGrid" aria-live="polite"></div>
-      <p class="empty-state" id="shopEmpty" hidden>No games match your search yet — try another term.</p>
-    </div>
-  </section>
-<!-- ---------------- GAME PRODUCTS ---------------- -->
-  <section class="view" id="view-game" data-view="game">
-    <div class="container">
-      <a href="#/shop" data-nav class="link-arrow link-arrow--back">← Back to shop</a>
-      <div class="game-header" id="gameHeader">
-        <img id="gameHeaderImage" src="" alt="" />
-        <div>
-          <h1 id="gameHeaderName">—</h1>
-          <p id="gameHeaderCategory" class="text-muted">—</p>
-        </div>
-      </div>
-      <div class="product-grid" id="productGrid" aria-live="polite"></div>
-      <p class="empty-state" id="productEmpty" hidden>No products are available for this game right now.</p>
-    </div>
-  </section>
-
-  <!-- ---------------- ORDER FORM (protected to submit) ---------------- -->
-  <section class="view" id="view-order" data-view="order">
-    <div class="container container--narrow">
-      <a href="#/shop" data-nav class="link-arrow link-arrow--back">← Back to shop</a>
-      <div class="order-layout">
-        <form id="orderForm" class="panel glass" novalidate>
-          <h1 id="orderProductName">Place order</h1>
-          <div class="field">
-            <label for="orderPlayerUID">Player UID / ID</label>
-            <input type="text" id="orderPlayerUID" name="playerUID" required />
-            <span class="field__error" data-error-for="orderPlayerUID"></span>
-          </div>
-          <div class="field" id="orderServerField">
-            <label for="orderServerID">Server ID <span class="field__optional">(optional)</span></label>
-            <input type="text" id="orderServerID" name="serverID" />
-          </div>
-          <div class="field" id="orderNicknameField" hidden>
-            <label for="orderNickname">Player nickname</label>
-            <input type="text" id="orderNickname" name="playerNickname" readonly placeholder="Verify UID to fetch nickname" />
-          </div>
-          <div class="field">
-            <label for="orderQuantity">Quantity</label>
-            <input type="number" id="orderQuantity" name="quantity" min="1" step="1" value="1" required />
-          </div>
-          <div class="field">
-            <label for="orderCoupon">Coupon code <span class="field__optional">(optional)</span></label>
-            <div class="field__with-action">
-              <input type="text" id="orderCoupon" name="couponCode" autocomplete="off" />
-              <button type="button" class="btn btn--outline btn--sm" id="applyCouponBtn">Apply</button>
-            </div>
-            <span class="field__hint" id="couponFeedback"></span>
-          </div>
-          <div class="field">
-            <label class="checkbox">
-              <input type="checkbox" id="orderConfirm" name="confirm" required />
-              <span>I've double-checked my Player UID and understand top-ups cannot be reversed once delivered.</span>
-            </label>
-            <span class="field__error" data-error-for="orderConfirm"></span>
-          </div>
-          <div class="price-summary">
-            <div><span>Price</span><span id="summaryPrice">R0.00</span></div>
-            <div><span>Quantity</span><span id="summaryQty">×1</span></div>
-            <div><span>Discount</span><span id="summaryDiscount">−R0.00</span></div>
-            <div class="price-summary__total"><span>Total</span><span id="summaryTotal">R0.00</span></div>
-            <div class="price-summary__wallet"><span>Wallet balance</span><span id="summaryWallet">R0.00</span></div>
-          </div>
-          <p class="field__error field__error--block" id="insufficientWarning" hidden>
-            Your wallet balance is too low for this order. <a href="#/deposit" data-nav>Deposit funds</a> to continue.
-          </p>
-          <button type="submit" class="btn btn--primary btn--block" id="placeOrderBtn">
-            <span class="btn__label">Place order</span>
-            <span class="btn__spinner" hidden></span>
-          </button>
-        </form>
-
-        <aside class="order-product-card glass">
-          <img id="orderProductImage" src="" alt="" />
-          <h2 id="orderProductTitle">—</h2>
-          <p id="orderProductDescription" class="text-muted">—</p>
-          <p class="order-product-card__bonus" id="orderProductBonus" hidden></p>
-          <p class="order-product-card__price" id="orderProductPrice">R0.00</p>
-        </aside>
-      </div>
-    </div>
-  </section>
-  <!-- ---------------- ORDER HISTORY (protected) ---------------- -->
-  <section class="view" id="view-orders" data-view="orders" data-protected="true">
-    <div class="container">
-      <div class="page-head"><h1>Order history</h1></div>
-      <div class="shop-toolbar">
-        <div class="search-input">
-          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
-          <input type="search" id="orderSearch" placeholder="Search by order ID or game…" aria-label="Search orders" />
-        </div>
-        <div class="chip-filter" id="orderStatusFilter" role="tablist">
-          <button type="button" class="chip is-active" data-status="all">All</button>
-          <button type="button" class="chip" data-status="pending">Pending</button>
-          <button type="button" class="chip" data-status="processing">Processing</button>
-          <button type="button" class="chip" data-status="completed">Completed</button>
-          <button type="button" class="chip" data-status="cancelled">Cancelled</button>
-          <button type="button" class="chip" data-status="refunded">Refunded</button>
-        </div>
-      </div>
-      <div class="order-list order-list--full" id="ordersListFull" aria-live="polite"></div>
-      <p class="empty-state" id="ordersEmpty" hidden>No orders yet — your first top-up will show up here.</p>
-      <div class="pagination" id="ordersPagination" hidden>
-        <button type="button" class="btn btn--outline btn--sm" id="ordersPrevBtn">← Previous</button>
-        <span id="ordersPageLabel">Page 1</span>
-        <button type="button" class="btn btn--outline btn--sm" id="ordersNextBtn">Next →</button>
-      </div>
-    </div>
-
-    <!-- Order detail modal -->
-    <div class="modal" id="orderDetailModal" hidden>
-      <div class="modal__backdrop" data-close-modal></div>
-      <div class="modal__panel glass" role="dialog" aria-modal="true" aria-labelledby="orderDetailTitle">
-        <button type="button" class="modal__close" data-close-modal aria-label="Close">&times;</button>
-        <h2 id="orderDetailTitle">Order details</h2>
-        <div id="orderDetailBody"></div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ---------------- REFERRALS (protected) ---------------- -->
-  <section class="view" id="view-referrals" data-view="referrals" data-protected="true">
-    <div class="container container--narrow">
-      <div class="page-head"><h1>Referrals</h1></div>
-      <div class="panel glass referral-card">
-        <p class="text-muted">Share your code — you both earn a wallet bonus on their first top-up.</p>
-        <div class="referral-code-box">
-          <span id="referralCodeValue">—</span>
-          <button type="button" class="btn btn--outline btn--sm" id="copyReferralBtn">Copy</button>
-        </div>
-        <div class="referral-code-box referral-code-box--link">
-          <span id="referralLinkValue">—</span>
-          <button type="button" class="btn btn--outline btn--sm" id="copyReferralLinkBtn">Copy link</button>
-        </div>
-      </div>
-
-      <div class="stat-grid stat-grid--tight">
-        <div class="stat-card glass">
-          <span class="stat-card__label">Friends invited</span>
-          <span class="stat-card__value" id="referralCount">0</span>
-        </div>
-        <div class="stat-card glass">
-          <span class="stat-card__label">Total earned</span>
-          <span class="stat-card__value" id="referralEarned">R0.00</span>
-        </div>
-      </div>
-
-      <div class="panel glass">
-        <div class="panel__head"><h2>Referral history</h2></div>
-        <div class="table-wrap">
-          <table class="data-table">
-            <thead><tr><th>Date</th><th>Status</th><th>Bonus</th></tr></thead>
-            <tbody id="referralHistoryBody"></tbody>
-          </table>
-        </div>
-        <p class="empty-state" id="referralHistoryEmpty" hidden>No referrals yet — invite a friend to get started.</p>
-      </div>
-    </div>
-  </section>
-  <!-- ---------------- NOTIFICATIONS (protected) ---------------- -->
-  <section class="view" id="view-notifications" data-view="notifications" data-protected="true">
-    <div class="container container--narrow">
-      <div class="page-head">
-        <h1>Notifications</h1>
-        <button type="button" class="btn btn--ghost btn--sm" id="markAllReadBtn">Mark all as read</button>
-      </div>
-      <div class="notif-list notif-list--full" id="notificationsListFull" aria-live="polite"></div>
-      <p class="empty-state" id="notificationsEmpty" hidden>You're all caught up — no notifications yet.</p>
-    </div>
-  </section>
-
-  <!-- ---------------- SUPPORT ---------------- -->
-  <section class="view" id="view-support" data-view="support">
-    <div class="container">
-      <div class="page-head"><h1>Support</h1></div>
-      <div class="support-layout">
-        <div class="panel glass">
-          <h2>Frequently asked questions</h2>
-          <div class="faq-list" id="faqList"></div>
-        </div>
-        <div class="panel glass">
-          <h2>Contact us</h2>
-          <p class="text-muted" id="supportContactInfo">Loading contact details…</p>
-          <form id="supportForm" novalidate>
-            <div class="field">
-              <label for="supportName">Name</label>
-              <input type="text" id="supportName" name="name" required />
-            </div>
-            <div class="field">
-              <label for="supportEmail">Email</label>
-              <input type="email" id="supportEmail" name="email" required />
-            </div>
-            <div class="field">
-              <label for="supportSubject">Subject</label>
-              <input type="text" id="supportSubject" name="subject" required />
-            </div>
-            <div class="field">
-              <label for="supportMessage">Message</label>
-              <textarea id="supportMessage" name="message" rows="4" required></textarea>
-            </div>
-            <button type="submit" class="btn btn--primary btn--block" id="supportSubmitBtn">
-              <span class="btn__label">Send message</span>
-              <span class="btn__spinner" hidden></span>
-            </button>
-          </form>
-        </div>
-      </div>
-      <div class="panel glass live-chat-placeholder">
-        <h2>Live chat</h2>
-        <p class="text-muted">Live chat is currently offline. Send us a message above and we'll reply by email.</p>
-      </div>
-    </div>
-  </section>
-  <!-- ---------------- SETTINGS (protected) ---------------- -->
-  <section class="view" id="view-settings" data-view="settings" data-protected="true">
-    <div class="container container--narrow">
-      <div class="page-head"><h1>Settings</h1></div>
-
-      <div class="panel glass">
-        <h2>Profile</h2>
-        <form id="profileForm" novalidate>
-          <div class="avatar-upload">
-            <img id="settingsAvatarPreview" src="" alt="" />
-            <label class="btn btn--outline btn--sm" for="avatarInput">Change avatar</label>
-            <input type="file" id="avatarInput" accept="image/*" hidden />
-          </div>
-          <div class="field">
-            <label for="settingsFullName">Full name</label>
-            <input type="text" id="settingsFullName" name="fullName" required minlength="2" />
-          </div>
-          <div class="field">
-            <label for="settingsEmail">Email</label>
-            <input type="email" id="settingsEmail" name="email" disabled />
-            <span class="field__hint">Contact support to change your email address.</span>
-          </div>
-          <button type="submit" class="btn btn--primary" id="profileSubmitBtn">
-            <span class="btn__label">Save changes</span>
-            <span class="btn__spinner" hidden></span>
-          </button>
-        </form>
-      </div>
-
-      <div class="panel glass">
-        <h2>Change password</h2>
-        <form id="passwordForm" novalidate>
-          <div class="field">
-            <label for="currentPassword">Current password</label>
-            <input type="password" id="currentPassword" name="currentPassword" autocomplete="current-password" required />
-          </div>
-          <div class="field">
-            <label for="newPassword">New password</label>
-            <input type="password" id="newPassword" name="newPassword" autocomplete="new-password" required minlength="6" />
-          </div>
-          <button type="submit" class="btn btn--primary" id="passwordSubmitBtn">
-            <span class="btn__label">Update password</span>
-            <span class="btn__spinner" hidden></span>
-          </button>
-        </form>
-      </div>
-
-      <div class="panel glass">
-        <h2>Preferences</h2>
-        <div class="field field--row">
-          <label for="settingsTheme">Theme</label>
-          <select id="settingsTheme">
-            <option value="dark">Dark</option>
-            <option value="light">Light</option>
-          </select>
-        </div>
-        <div class="field field--row">
-          <label for="settingsLanguage">Language</label>
-          <select id="settingsLanguage">
-            <option value="en">English</option>
-            <option value="af">Afrikaans</option>
-            <option value="zu">isiZulu</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="panel glass">
-        <h2>Log out</h2>
-        <p class="text-muted">End your session on this device.</p>
-        <button type="button" class="btn btn--danger" id="settingsLogoutBtn">Log out</button>
-      </div>
-    </div>
-  </section>
-  <!-- ---------------- 404 ---------------- -->
-  <section class="view" id="view-notfound" data-view="notfound">
-    <div class="container empty-state-full">
-      <h1>Page not found</h1>
-      <p class="text-muted">That page doesn't exist. Let's get you back on track.</p>
-      <a href="#/home" data-nav class="btn btn--primary">Go home</a>
-    </div>
-  </section>
-
-</main>
-
-<!-- ==================================================================
-     FOOTER
-================================================================== -->
-<footer class="site-footer">
-  <div class="container site-footer__inner">
-    <div class="site-footer__brand">
-      <span class="brand__name" id="footerBrandName">SA Topup Zone</span>
-      <p id="footerText" class="text-muted">© SA Topup Zone. All rights reserved.</p>
-    </div>
-    <div class="site-footer__links">
-      <div>
-        <h3>Shop</h3>
-        <a href="#/shop" data-nav>Browse games</a>
-        <a href="#/support" data-nav>Support</a>
-      </div>
-      <div>
-        <h3>Account</h3>
-        <a href="#/login" data-nav>Log in</a>
-        <a href="#/register" data-nav>Sign up</a>
-      </div>
-      <div>
-        <h3>Contact</h3>
-        <span id="footerSupportEmail">—</span>
-        <span id="footerSupportPhone">—</span>
-      </div>
-    </div>
-    <div class="site-footer__social" id="footerSocial"></div>
-  </div>
-</footer>
-
-<!-- Firebase SDK v11 (modular, ES modules via CDN) -->
-<script>
-window.onerror = function (msg, url, line) {
-  document.body.insertAdjacentHTML('afterbegin',
-    '<div style="position:fixed;top:0;left:0;right:0;z-index:99999;background:#c0392b;color:#fff;padding:10px;font-size:12px;word-break:break-all;">' +
-    msg + ' — ' + url + ':' + line + '</div>');
-};
-window.addEventListener('unhandledrejection', function (e) {
-  document.body.insertAdjacentHTML('afterbegin',
-    '<div style="position:fixed;top:0;left:0;right:0;z-index:99999;background:#c0392b;color:#fff;padding:10px;font-size:12px;word-break:break-all;">' +
-    (e.reason?.message || e.reason) + '</div>');
-});
-</script>
-  <script type="module" src="script.js"></script>
-</body>
-</html>
+        <p class="text-muted">Funds are only add
