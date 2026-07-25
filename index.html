@@ -805,6 +805,18 @@
 </footer>
 
 <!-- Firebase SDK v11 (modular, ES modules via CDN) -->
-<script type="module" src="script.js"></script>
+<script>
+window.onerror = function (msg, url, line) {
+  document.body.insertAdjacentHTML('afterbegin',
+    '<div style="position:fixed;top:0;left:0;right:0;z-index:99999;background:#c0392b;color:#fff;padding:10px;font-size:12px;word-break:break-all;">' +
+    msg + ' — ' + url + ':' + line + '</div>');
+};
+window.addEventListener('unhandledrejection', function (e) {
+  document.body.insertAdjacentHTML('afterbegin',
+    '<div style="position:fixed;top:0;left:0;right:0;z-index:99999;background:#c0392b;color:#fff;padding:10px;font-size:12px;word-break:break-all;">' +
+    (e.reason?.message || e.reason) + '</div>');
+});
+</script>
+  <script type="module" src="script.js"></script>
 </body>
 </html>
