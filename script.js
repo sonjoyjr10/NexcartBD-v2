@@ -393,7 +393,7 @@ window.addEventListener("hashchange", renderRoute);
 /* =============================================================================
    5. AUTH
 ============================================================================= */
-async function ensureUserDocuments(fbUser, extra = {}) {
+  async function ensureUserDocuments(fbUser, extra = {}) {
   const userRef = doc(db, COLLECTIONS.users, fbUser.uid);
   const existing = await getDoc(userRef);
   if (existing.exists()) return;
@@ -563,4 +563,60 @@ function onAuthenticated(fbUser) {
     limit(30)
   );
   state.unsubscribers.notifications = onSnapshot(notifQuery, (snap) => {
-    state.notifications = snap.docs.map((d) => ({ id: d.id, ...d.data() 
+    state.notifications = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    updateNotificationChrome();
+    if (state.currentRoute.name === "notifications") renderNotificationsList();
+    if (state.currentRoute.name === "dashboard") renderDashboardNotifications();
+  }, () => { /* index still building or offline — fail quietly */ });
+}
+
+function onSignedOut() {
+  state.user = null;
+  state.profile = null;
+  state.wallet = { balance: 0 };
+  state.notifications = [];
+  teardownUserListeners();
+  $("#headerAuthArea").hidden = false;
+  $("#mobileAuthArea").hidden = false;
+  $("#headerUserArea").hidden = true;
+  $("#mobileLogoutBtn").hidden = true;
+}
+
+function updateUserChrome() {
+  const p = state.profile;
+  if (!p) return;
+  const avatar = p.photoURL || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(p.fullName || "U")}`;
+  $("#userAvatar").src = avatar;
+  $("#userMenuName").textContent = p.fullName || "—";
+  $("#userMenuEmail").textContent = p.email || "—";
+}
+
+function updateWalletChrome() {
+  $("#walletPillAmount").textContent = formatCurrency(state.wallet.balance || 0);
+}
+
+function updateNotificationChrome() {
+  const hasUnread = state.notifications.some((n) => !n.read);
+  $("#notifDot").hidden = !hasUnread;
+}
+
+onAuthStateChanged(
+  auth,
+  (fbUser) => {
+    window.__saTopupAuthResolved = true;
+    if (window.__saTopupBootTimeout) clearTimeout(window.__saTopupBootTimeout);
+    if (fbUser) onAuthenticated(fbUser);
+    else onSignedOut();
+    renderRoute();
+    hideAppLoader();
+  },
+  (err) => {
+    // Firestore/Auth SDK-level error (e.g. invalid API key rejected by
+    // Google's servers) — surface it instead of hanging on the loader.
+    window.saTopupShowBootError?.(`Firebase Auth error: ${err.message}`);
+  }
+);
+
+/* =============================================================================
+   6. DASHBOARD
+============================================================================= */
