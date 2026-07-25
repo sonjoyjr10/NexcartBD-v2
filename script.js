@@ -1,25 +1,3 @@
-/**
- * script.js
- * ---------------------------------------------------------------------------
- * SA Topup Zone — User Panel application logic.
- * Single-file, vanilla ES module. No frameworks, no bundler required.
- *
- * IMPORTANT ARCHITECTURE NOTE ON MONEY MOVEMENT
- * Client-side code (this file) can never be fully trusted with financial
- * writes — anyone can open devtools and call these functions directly.
- * Two things make this safe in production:
- *   1. Firestore/Storage Security Rules must mirror every rule enforced
- *      here (balance checks, ownership checks, status transitions).
- *   2. Deposit crediting and referral-bonus crediting are written here as
- *      "pending review" writes only — the actual balance credit is meant
- *      to happen via a trusted Cloud Function (payment gateway webhook)
- *      or an Admin Panel approval action, never directly from the browser.
- * Order placement debits the wallet directly because it only ever *spends*
- * funds the user already has verified, inside a Firestore transaction that
- * re-checks the live balance at commit time.
- * ---------------------------------------------------------------------------
- */
-
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
 import {
   getAuth,
