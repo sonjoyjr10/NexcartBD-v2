@@ -1201,3 +1201,470 @@ async function handlePlaceOrder(e) {
 /* =============================================================================
    11. ORDER HISTORY
 ============================================================================= */
+function buildOrderRow(order) {
+  const row = document.createElement("div");
+  row.className = "order-row";
+  row.innerHTML = `
+    <div class="order-row__main">
+      <div>
+        <p class="order-row__title">${escapeHTML(order.productName || "Order")}</p>
+        <p class="order-row__meta">${escapeHTML(order.gameName || "")} · ${formatDate(order.createdAt)}</p>
+      </div>
+    </div>
+    <div class="order-row__right">
+      <span class="order-row__amount">${formatCurrency(order.total || 0)}</span>
+      <span class="badge badge--${order.status || "pending"}">${escapeHTML(order.status || "pending")}</span>
+    </div>
+  `;
+  row.addEventListener("click", () => openOrderDetail(order));
+  return row;
+}
+
+function openOrderDetail(order) {
+  $("#orderDetailTitle").textContent = order.productName || "Order details";
+  $("#orderDetailBody").innerHTML = `
+    <div class="price-summary" style="margin-top:0;">
+      <div><span>Order ID</span><span>${escapeHTML(order.id || "—")}</span></div>
+      <div><span>Game</span><span>${escapeHTML(order.gameName || "—")}</span></div>
+      <div><span>Player UID</span><span>${escapeHTML(order.playerUID || "—")}</span></div>
+      ${order.serverID ? `<div><span>Server ID</span><span>${escapeHTML(order.serverID)}</span></div>` : ""}
+      <div><span>Quantity</span><span>×${escapeHTML(String(order.quantity || 1))}</span></div>
+      <div><span>Discount</span><span>−${formatCurrency(order.discount || 0)}</span></div>
+      <div class="price-summary__total"><span>Total</span><span>${formatCurrency(order.total || 0)}</span></div>
+      <div><span>Status</span><span><span class="badge badge--${order.status || "pending"}">${escapeHTML(order.status || "pending")}</span></span></div>
+      <div><span>Created</span><span>${formatDate(order.createdAt)}</span></div>
+      <div><span>Updated</span><span>${formatDate(order.updatedAt)}</span></div>
+    </div>
+  `;
+  $("#orderDetailModal").hidden = false;
+}
+
+$all("[data-close-modal]").forEach((el) => el.addEventListener("click", () => {
+  $all(".modal").forEach((m) => (m.hidden = true));
+}));
+
+async function loadOrdersHistory(reset = false) {
+  const listEl = $("#ordersListFull");
+  const emptyEl = $("#ordersEmpty");
+  const pagination = $("#ordersPagination");
+
+  if (reset) {
+    state.ordersPage = { cursor: [], pageIndex: 0, lastDoc: null, statusFilter: "all", searchTerm: "" };
+    $("#orderSearch").value = "";
+    $all(".chip", "#orderStatusFilter").forEach((c) => c.classList.remove("is-active"));
+    $('[data-status="all"]', "#orderStatusFilter")?.classList.add("is-active");
+  }
+
+  listEl.innerHTML = `<div class="skeleton" style="height:60px;margin-bottom:10px;"></div>`.repeat(4);
+  try {
+    const clauses = [where("uid", "==", state.user.uid)];
+    if (state.ordersPage.statusFilter !== "all") clauses.push(where("status", "==", state.ordersPage.statusFilter));
+
+    let q = query(collection(db, COLLECTIONS.orders), ...clauses, orderBy("createdAt", "desc"), limit(APP_CONFIG.ordersPageSize));
+    if (state.ordersPage.lastDoc) q = query(collection(db, COLLECTIONS.orders), ...clauses, orderBy("createdAt", "desc"), startAfter(state.ordersPage.lastDoc), limit(APP_CONFIG.ordersPageSize));
+
+    const snap = await getDocs(q);
+    let orders = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+    const term = state.ordersPage.searchTerm.toLowerCase();
+    if (term) orders = orders.filter((o) => o.id.toLowerCase().includes(term) || (o.gameName || "").toLowerCase().includes(term));
+
+    if (!orders.length) {
+      listEl.innerHTML = "";
+      emptyEl.hidden = false;
+      pagination.hidden = true;
+      return;
+    }
+    emptyEl.hidden = true;
+    listEl.innerHTML = "";
+    orders.forEach((o) => listEl.appendChild(buildOrderRow(o)));
+
+    if (snap.docs.length) state.ordersPage.lastDoc = snap.docs[snap.docs.length - 1];
+    pagination.hidden = false;
+    $("#ordersPageLabel").textContent = `Page ${state.ordersPage.pageIndex + 1}`;
+    $("#ordersPrevBtn").disabled = state.ordersPage.pageIndex === 0;
+    $("#ordersNextBtn").disabled = snap.docs.length < APP_CONFIG.ordersPageSize;
+  } catch {
+    listEl.innerHTML = "";
+    emptyEl.hidden = false;
+    emptyEl.textContent = "Couldn't load your orders.";
+  }
+}
+
+$("#orderSearch")?.addEventListener("input", debounce((e) => {
+  state.ordersPage.searchTerm = e.target.value.trim();
+  loadOrdersHistory(false);
+}, 250));
+
+$("#orderStatusFilter")?.addEventListener("click", (e) => {
+  const chip = e.target.closest(".chip");
+  if (!chip) return;
+  $all(".chip", "#orderStatusFilter").forEach((c) => c.classList.remove("is-active"));
+  chip.classList.add("is-active");
+  state.ordersPage.statusFilter = chip.dataset.status;
+  state.ordersPage.lastDoc = null;
+  state.ordersPage.pageIndex = 0;
+  loadOrdersHistory(false);
+});
+
+$("#ordersNextBtn")?.addEventListener("click", () => {
+  state.ordersPage.pageIndex += 1;
+  loadOrdersHistory(false);
+});
+$("#ordersPrevBtn")?.addEventListener("click", () => {
+  // Simplified paging: for "previous" we just reset to first page and refetch.
+  // (Cursor-per-page tracking is avoided here to keep the client logic simple —
+  // fine for the modest per-user order volumes this view expects.)
+  state.ordersPage.pageIndex = 0;
+  state.ordersPage.lastDoc = null;
+  loadOrdersHistory(false);
+});
+
+/* =============================================================================
+   12. REFERRALS
+============================================================================= */
+async function loadReferrals() {
+  const p = state.profile;
+  if (!p) return;
+  $("#referralCodeValue").textContent = p.referralCode || "—";
+  $("#referralLinkValue").textContent = p.referralCode ? `${window.location.origin}${window.location.pathname}#/register?ref=${p.referralCode}` : "—";
+  $("#referralEarned").textContent = formatCurrency(p.referralEarnings || 0);
+
+  const body = $("#referralHistoryBody");
+  const emptyEl = $("#referralHistoryEmpty");
+  body.innerHTML = `<tr><td colspan="3"><div class="skeleton" style="height:20px;"></div></td></tr>`;
+  try {
+    const q = query(collection(db, COLLECTIONS.referrals), where("referrerUid", "==", state.user.uid), orderBy("createdAt", "desc"));
+    const snap = await getDocs(q);
+    $("#referralCount").textContent = snap.size;
+    if (snap.empty) {
+      body.innerHTML = "";
+      emptyEl.hidden = false;
+      return;
+    }
+    emptyEl.hidden = true;
+    body.innerHTML = snap.docs.map((d) => {
+      const r = d.data();
+      return `<tr><td>${formatDate(r.createdAt)}</td><td><span class="badge badge--${r.status === "credited" ? "completed" : "pending"}">${escapeHTML(r.status || "pending")}</span></td><td>${formatCurrency(r.bonusAmount || 0)}</td></tr>`;
+    }).join("");
+  } catch {
+    body.innerHTML = "";
+    emptyEl.hidden = false;
+  }
+}
+
+$("#copyReferralBtn")?.addEventListener("click", () => copyToClipboard($("#referralCodeValue").textContent, "Referral code copied."));
+$("#copyReferralLinkBtn")?.addEventListener("click", () => copyToClipboard($("#referralLinkValue").textContent, "Referral link copied."));
+
+async function copyToClipboard(text, message) {
+  try {
+    await navigator.clipboard.writeText(text);
+    toast(message, "success");
+  } catch {
+    toast("Couldn't copy — copy it manually.", "error");
+  }
+}
+
+/* =============================================================================
+   13. NOTIFICATIONS
+============================================================================= */
+function buildNotifRow(n) {
+  const row = document.createElement("div");
+  row.className = `notif-row ${n.read ? "" : "is-unread"}`;
+  row.innerHTML = `
+    <span class="notif-row__title">${escapeHTML(n.title || "Notification")}</span>
+    <span class="notif-row__msg">${escapeHTML(n.message || "")}</span>
+    <span class="notif-row__time">${formatDate(n.createdAt)}</span>
+  `;
+  if (!n.read) {
+    row.addEventListener("click", () => markNotificationRead(n.id));
+  }
+  return row;
+}
+
+async function markNotificationRead(notifId) {
+  try {
+    await updateDoc(doc(db, COLLECTIONS.notifications, notifId), { read: true });
+  } catch { /* non-critical */ }
+}
+
+function loadNotificationsView() {
+  renderNotificationsList();
+}
+
+function renderNotificationsList() {
+  const container = $("#notificationsListFull");
+  const emptyEl = $("#notificationsEmpty");
+  if (!state.notifications.length) {
+    container.innerHTML = "";
+    emptyEl.hidden = false;
+    return;
+  }
+  emptyEl.hidden = true;
+  container.innerHTML = "";
+  state.notifications.forEach((n) => container.appendChild(buildNotifRow(n)));
+}
+
+$("#markAllReadBtn")?.addEventListener("click", async () => {
+  const unread = state.notifications.filter((n) => !n.read);
+  if (!unread.length) return;
+  try {
+    await Promise.all(unread.map((n) => updateDoc(doc(db, COLLECTIONS.notifications, n.id), { read: true })));
+    toast("All notifications marked as read.", "success");
+  } catch {
+    toast("Couldn't update notifications.", "error");
+  }
+});
+
+$("#notifBellBtn")?.addEventListener("click", () => navigate("/notifications"));
+
+/* =============================================================================
+   14. SUPPORT
+============================================================================= */
+const FAQ_ITEMS = [
+  { q: "How long do top-ups take to deliver?", a: "Most orders are processed within minutes once your wallet has sufficient balance and your Player UID is verified." },
+  { q: "How do I add funds to my wallet?", a: "Go to Wallet → Deposit, choose a payment method, enter your payment reference, and submit. Funds appear once the deposit is verified." },
+  { q: "What happens if I enter the wrong Player UID?", a: "Double-check your UID before confirming — top-ups sent to an incorrect UID usually cannot be recovered. Contact support immediately if you spot a mistake." },
+  { q: "Can I get a refund?", a: "Orders that fail to deliver are refunded to your wallet automatically. Contact support if an order looks stuck." },
+  { q: "How does the referral program work?", a: "Share your referral code or link. When a friend signs up and makes their first top-up, you both receive a wallet bonus." },
+];
+
+function loadSupportView() {
+  const list = $("#faqList");
+  if (!list.dataset.loaded) {
+    list.innerHTML = FAQ_ITEMS.map((item, i) => `
+      <div class="faq-item" id="faq-${i}">
+        <button type="button" class="faq-item__q">${escapeHTML(item.q)}</button>
+        <div class="faq-item__a">${escapeHTML(item.a)}</div>
+      </div>
+    `).join("");
+    list.dataset.loaded = "true";
+    list.addEventListener("click", (e) => {
+      const q = e.target.closest(".faq-item__q");
+      if (!q) return;
+      q.closest(".faq-item").classList.toggle("is-open");
+    });
+  }
+  if (state.profile) {
+    $("#supportName").value = state.profile.fullName || "";
+    $("#supportEmail").value = state.profile.email || "";
+  }
+}
+
+async function handleSupportSubmit(e) {
+  e.preventDefault();
+  const form = e.target;
+  const name = sanitizeInput($("#supportName").value);
+  const email = $("#supportEmail").value.trim();
+  const subject = sanitizeInput($("#supportSubject").value);
+  const message = sanitizeInput($("#supportMessage").value);
+
+  if (!name || !/^\S+@\S+\.\S+$/.test(email) || !subject || !message) {
+    toast("Please fill in every field before sending.", "error");
+    return;
+  }
+
+  const btn = $("#supportSubmitBtn");
+  setButtonLoading(btn, true);
+  try {
+    await addDoc(collection(db, COLLECTIONS.support), {
+      uid: state.user?.uid || null,
+      name,
+      email,
+      subject,
+      message,
+      status: "open",
+      createdAt: serverTimestamp(),
+    });
+    toast("Message sent — we'll get back to you by email.", "success");
+    form.reset();
+  } catch {
+    toast("Couldn't send your message. Try again.", "error");
+  } finally {
+    setButtonLoading(btn, false);
+  }
+}
+
+/* =============================================================================
+   15. SETTINGS
+============================================================================= */
+function loadSettingsView() {
+  const p = state.profile;
+  if (!p) return;
+  $("#settingsFullName").value = p.fullName || "";
+  $("#settingsEmail").value = p.email || "";
+  $("#settingsAvatarPreview").src = p.photoURL || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(p.fullName || "U")}`;
+  $("#settingsTheme").value = document.documentElement.getAttribute("data-theme") || "dark";
+  $("#settingsLanguage").value = localStorage.getItem("sa_topup_lang") || "en";
+}
+
+async function handleAvatarChange(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  try {
+    const path = `avatars/${state.user.uid}/${Date.now()}_${file.name}`;
+    const ref = storageRef(storage, path);
+    await uploadBytes(ref, file);
+    const url = await getDownloadURL(ref);
+    await updateDoc(doc(db, COLLECTIONS.users, state.user.uid), { photoURL: url });
+    $("#settingsAvatarPreview").src = url;
+    toast("Avatar updated.", "success");
+  } catch {
+    toast("Couldn't upload your avatar.", "error");
+  }
+}
+
+async function handleProfileSubmit(e) {
+  e.preventDefault();
+  const fullName = sanitizeInput($("#settingsFullName").value);
+  if (fullName.length < 2) { toast("Enter your full name.", "error"); return; }
+  const btn = $("#profileSubmitBtn");
+  setButtonLoading(btn, true);
+  try {
+    await updateDoc(doc(db, COLLECTIONS.users, state.user.uid), { fullName });
+    await updateProfile(auth.currentUser, { displayName: fullName });
+    await logAudit("profile_updated", {});
+    toast("Profile updated.", "success");
+  } catch {
+    toast("Couldn't save your profile.", "error");
+  } finally {
+    setButtonLoading(btn, false);
+  }
+}
+
+async function handlePasswordSubmit(e) {
+  e.preventDefault();
+  const currentPassword = $("#currentPassword").value;
+  const newPassword = $("#newPassword").value;
+  if (newPassword.length < 6) { toast("New password must be at least 6 characters.", "error"); return; }
+
+  const btn = $("#passwordSubmitBtn");
+  setButtonLoading(btn, true);
+  try {
+    const cred = EmailAuthProvider.credential(state.user.email, currentPassword);
+    await reauthenticateWithCredential(auth.currentUser, cred);
+    await updatePassword(auth.currentUser, newPassword);
+    await logAudit("password_changed", {});
+    toast("Password updated.", "success");
+    e.target.reset();
+  } catch (err) {
+    toast(friendlyAuthError(err), "error");
+  } finally {
+    setButtonLoading(btn, false);
+  }
+}
+
+$("#settingsTheme")?.addEventListener("change", (e) => applyTheme(e.target.value));
+$("#settingsLanguage")?.addEventListener("change", (e) => {
+  localStorage.setItem("sa_topup_lang", e.target.value);
+  toast("Language preference saved.", "success");
+});
+$("#settingsLogoutBtn")?.addEventListener("click", handleLogout);
+
+/* =============================================================================
+   16. THEME TOGGLE / MOBILE NAV / USER MENU (header interactivity)
+============================================================================= */
+function applyTheme(theme) {
+  document.documentElement.setAttribute("data-theme", theme);
+  localStorage.setItem("sa_topup_theme", theme);
+}
+
+function initTheme() {
+  const saved = localStorage.getItem("sa_topup_theme");
+  applyTheme(saved || state.settings.defaultTheme || "dark");
+}
+
+$("#themeToggleBtn").addEventListener("click", () => {
+  const current = document.documentElement.getAttribute("data-theme");
+  applyTheme(current === "dark" ? "light" : "dark");
+});
+
+function closeMobileNav() {
+  $("#mobileNav").hidden = true;
+  $("#hamburgerBtn").setAttribute("aria-expanded", "false");
+}
+$("#hamburgerBtn").addEventListener("click", () => {
+  const isHidden = $("#mobileNav").hidden;
+  $("#mobileNav").hidden = !isHidden;
+  $("#hamburgerBtn").setAttribute("aria-expanded", String(isHidden));
+});
+$("#mobileLogoutBtn").addEventListener("click", handleLogout);
+
+function closeUserMenu() {
+  $("#userMenuPanel").hidden = true;
+  $("#userMenuTrigger")?.setAttribute("aria-expanded", "false");
+}
+$("#userMenuTrigger").addEventListener("click", (e) => {
+  e.stopPropagation();
+  const isHidden = $("#userMenuPanel").hidden;
+  $("#userMenuPanel").hidden = !isHidden;
+  $("#userMenuTrigger").setAttribute("aria-expanded", String(isHidden));
+});
+document.addEventListener("click", (e) => {
+  if (!$("#userMenu").contains(e.target)) closeUserMenu();
+});
+$("#logoutBtn").addEventListener("click", handleLogout);
+
+$("#announcementClose").addEventListener("click", () => {
+  localStorage.setItem("dismissedAnnouncement", $("#announcementText").textContent);
+  $("#announcementBar").hidden = true;
+});
+
+/* Password visibility toggles */
+$all("[data-toggle-for]").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const input = document.getElementById(btn.dataset.toggleFor);
+    if (!input) return;
+    input.type = input.type === "password" ? "text" : "password";
+  });
+});
+
+/* Delegate SPA navigation for any [data-nav] link (keeps hashchange as source of truth) */
+document.body.addEventListener("click", (e) => {
+  const link = e.target.closest("[data-nav]");
+  if (!link) return;
+  // let the browser update the hash naturally; hashchange listener re-renders.
+});
+
+/* =============================================================================
+   17. APP LOADER
+============================================================================= */
+function hideAppLoader() {
+  $("#appLoader").classList.add("is-hidden");
+}
+
+/* =============================================================================
+   18. FORM BINDINGS
+============================================================================= */
+$("#registerForm").addEventListener("submit", handleRegister);
+$("#loginForm").addEventListener("submit", handleLogin);
+$("#forgotForm").addEventListener("submit", handleForgotPassword);
+$("#depositForm").addEventListener("submit", handleDepositSubmit);
+$("#orderForm").addEventListener("submit", handlePlaceOrder);
+$("#applyCouponBtn").addEventListener("click", handleApplyCoupon);
+$("#supportForm").addEventListener("submit", handleSupportSubmit);
+$("#profileForm").addEventListener("submit", handleProfileSubmit);
+$("#passwordForm").addEventListener("submit", handlePasswordSubmit);
+$("#avatarInput").addEventListener("change", handleAvatarChange);
+
+/* =============================================================================
+   19. INIT
+============================================================================= */
+function prefillReferralFromURL() {
+  // Supports links like #/register?ref=CODE123
+  const hash = window.location.hash;
+  const match = hash.match(/[?&]ref=([^&]+)/);
+  if (match && $("#registerReferral")) {
+    $("#registerReferral").value = decodeURIComponent(match[1]);
+  }
+}
+
+function init() {
+  listenToSettings();
+  initTheme();
+  prefillReferralFromURL();
+  if (!window.location.hash) window.location.hash = "#/home";
+  renderRoute();
+}
+
+init();
