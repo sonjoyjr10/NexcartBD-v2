@@ -1,0 +1,238 @@
+/* ===========================================================
+   Dream TopUp - Stylesheet
+   Base styles extracted from the original app (mobile-first)
+   Responsive/desktop rules are appended at the bottom
+   =========================================================== */
+
+        /* Global Font: Poppins for everywhere except Home */
+        body { 
+            font-family: 'Poppins', sans-serif; 
+            background-color: #f8fafc; 
+        }
+
+        /* Home Panel Specific Font: Bree Serif */
+        #home-sec {
+            font-family: 'Bree Serif', serif;
+        }
+        
+        /* Account Section Font: Bree Serif for English */
+        #account-sec {
+            font-family: 'Bree Serif', serif;
+        }
+        
+        /* Tutorial Section Font: Bree Serif for English */
+        #tutorial-sec {
+            font-family: 'Bree Serif', serif;
+        }
+        
+        .nav-gradient { background: white; color: #1e293b; }
+        .active-tab { color: #03a9f4 !important; }
+        .hidden { display: none !important; }
+        
+        /* Language-specific fonts */
+        .font-en { font-family: 'Poppins', sans-serif; }
+        .font-bn { font-family: 'Noto Serif Bengali', serif; }
+        
+        /* Auto-detect language */
+        .lang-auto { 
+            font-family: 'Poppins', sans-serif;
+        }
+        
+        /* Home section er vitor jodi lang-auto class thake, sheta Bree Serif hobe */
+        #home-sec .lang-auto {
+            font-family: 'Bree Serif', serif;
+        }
+
+        .lang-auto:lang(bn), .lang-auto:lang(bn-BD) { 
+            font-family: 'Noto Serif Bengali', serif;
+        }
+        
+        .notice-scroll { animation: scroll-left 15s linear infinite; display: inline-block; white-space: nowrap; }
+        @keyframes scroll-left { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
+        
+        .method-card { transition: all 0.2s; border: 2px solid transparent; }
+        .method-card:active { transform: scale(0.95); }
+        
+        @keyframes fadeInUp { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+        .animate-fade-in { animation: fadeInUp 0.4s ease-out forwards; }
+
+        /* PRODUCT CARD STYLES UPDATED FOR NEW UI */
+        .product-card {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            padding: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .product-card:hover { border-color: #81d4fa; }
+        .product-card.selected {
+            border: 1.5px solid #03a9f4;
+            background-color: #f0f9ff;
+        }
+        .product-bullet {
+            height: 12px; width: 12px; background-color: #e5e7eb; border-radius: 50%; margin-right: 8px;
+        }
+        .product-card.selected .product-bullet { background-color: #03a9f4; }
+        
+        #fab-container.is-open #fab-toggler {
+            background-color: #dc2626; /* red-600 */
+        }
+        #fab-container.is-open #fab-icon-open {
+            transform: rotate(-180deg) scale(0);
+            opacity: 0;
+        }
+        #fab-container.is-open #fab-icon-close {
+            transform: scale(1) rotate(0);
+            opacity: 1;
+        }
+        #fab-container.is-open #fab-options {
+            transform: translateY(0);
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .line-clamp-2 {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .aspect-video {
+            aspect-ratio: 16 / 9;
+        }
+
+        /* --- NEW ADD MONEY STYLES --- */
+        .step-transition {
+            animation: slideInRight 0.3s ease-out forwards;
+        }
+        @keyframes slideInRight {
+            from { transform: translateX(10%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        
+        /* Remove arrows from number input */
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { 
+            -webkit-appearance: none; 
+            margin: 0; 
+        }
+        
+        /* Method Specific Colors for Dynamic UI */
+        .theme-bkash { background-color: #e2136e !important; border-color: #e2136e !important; }
+        .theme-nagad { background-color: #f7941d !important; border-color: #f7941d !important; }
+        .theme-rocket { background-color: #8c3494 !important; border-color: #8c3494 !important; }
+        
+        .text-theme-bkash { color: #e2136e !important; }
+        .text-theme-nagad { color: #f7941d !important; }
+        .text-theme-rocket { color: #8c3494 !important; }
+
+        /* PAYMENT OPTION CARD STYLES */
+        .pay-option-card {
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            overflow: hidden;
+            background: white;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.2s;
+        }
+        .pay-option-card.selected {
+            border: 2px solid #ef4444; /* Red border for selected like image */
+        }
+        .pay-option-card.selected::before {
+            content: '\f00c';
+            font-family: 'Font Awesome 5 Free';
+            font-weight: 900;
+            position: absolute;
+            top: 0;
+            left: 0;
+            background: #ef4444;
+            color: white;
+            font-size: 10px;
+            padding: 2px 6px;
+            border-bottom-right-radius: 6px;
+            z-index: 10;
+        }
+
+
+/* ===========================================================
+   MOBILE + DESKTOP RESPONSIVE ENHANCEMENTS
+   The UI is an "app card" (#app-content, max-w-md = 28rem).
+   On phones it fills the screen edge-to-edge as before.
+   On tablets/desktops it now floats centered on a soft
+   background instead of sitting bare on blank white, and the
+   floating help button (FAB) is realigned to the card instead
+   of the browser window's edge.
+   =========================================================== */
+
+/* Prevent iOS Safari from auto-zooming when an input is focused
+   (any input under 16px triggers unwanted zoom on mobile) */
+input, textarea, select {
+    font-size: 16px;
+}
+
+/* Floating help/contact button: by default (mobile) this keeps
+   the exact same position as before (1rem from the right edge).
+   The extra rules simply make it aware of the card's width so it
+   never drifts away from the app on wider screens. */
+#fab-container {
+    left: 0;
+    right: 0;
+    max-width: 28rem; /* matches the app card's max-w-md */
+    margin: 0 auto;
+    display: flex;
+    justify-content: flex-end;
+    padding-right: 1rem;
+    pointer-events: none;
+}
+#fab-container > div {
+    pointer-events: auto;
+}
+
+/* Tablet and desktop widths */
+@media (min-width: 768px) {
+    body {
+        background: linear-gradient(135deg, #e0f2fe 0%, #f8fafc 45%, #e0f2fe 100%);
+        background-attachment: fixed;
+    }
+
+    #app-content {
+        margin-top: 2.5rem;
+        margin-bottom: 2.5rem;
+        min-height: calc(100vh - 5rem);
+        box-shadow: 0 25px 60px -15px rgba(2, 132, 199, 0.25);
+        border-radius: 16px;
+    }
+
+    /* Keep the sticky header's corners visually consistent with
+       the rounded card without breaking its sticky behaviour */
+    #app-content > header:first-child {
+        border-top-left-radius: 16px;
+        border-top-right-radius: 16px;
+    }
+}
+
+/* Larger desktop screens: a little extra breathing room */
+@media (min-width: 1280px) {
+    #app-content {
+        margin-top: 3.5rem;
+        margin-bottom: 3.5rem;
+        min-height: calc(100vh - 7rem);
+    }
+}
+
+/* Small/older phones: slightly tighter spacing so nothing feels cramped */
+@media (max-width: 359px) {
+    main.p-3 {
+        padding: 0.65rem;
+    }
+    .grid.grid-cols-3.gap-3 {
+        gap: 0.5rem;
+    }
+}
