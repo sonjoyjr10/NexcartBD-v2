@@ -1,6 +1,3 @@
-/**
- * Entry point for index.html (the storefront home page).
- */
 import { watchAuthState, logoutUser } from "./auth.js";
 import { fetchActiveGames, fetchFeaturedPackages, filterGames } from "./store.js";
 import { toast, escapeHtml, formatMoney, skeletonCards, debounce, qs, qsa } from "./utils.js";
