@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Create Account — Supper Shop</title>
+<meta name="description" content="Create a free Supper Shop account to start topping up your favorite games." />
+<link rel="icon" href="/assets/icons/favicon.svg" type="image/svg+xml" />
+<link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+<header class="site-header">
+  <div class="container">
+    <a href="/index.html" class="brand"><span class="chip-dot"></span>Supper<span class="accent">Shop</span></a>
+    <nav class="nav-links"><a href="/index.html">Store</a></nav>
+    <div class="header-actions"><a href="/login.html" class="btn btn-sm btn-outline">Login</a></div>
+  </div>
+</header>
+
+<main class="auth-shell">
+  <div class="auth-card glass">
+    <h2>Create your account</h2>
+    <p class="sub">Join Supper Shop — instant top-ups, secure wallet.</p>
+
+    <form id="register-form" novalidate>
+      <div class="form-field">
+        <label for="name">Full name</label>
+        <input type="text" id="name" name="name" required autocomplete="name" />
+      </div>
+      <div class="form-field">
+        <label for="email">Email</label>
+        <input type="email" id="email" name="email" required autocomplete="email" />
+      </div>
+      <div class="form-field">
+        <label for="phone">Phone (optional)</label>
+        <input type="tel" id="phone" name="phone" autocomplete="tel" />
+      </div>
+      <div class="form-field">
+        <label for="password">Password</label>
+        <input type="password" id="password" name="password" required minlength="8" autocomplete="new-password" />
+        <div class="hint">At least 8 characters.</div>
+      </div>
+      <div class="form-field">
+        <label for="confirm-password">Confirm password</label>
+        <input type="password" id="confirm-password" name="confirmPassword" required autocomplete="new-password" />
+      </div>
+      <button class="btn btn-gold btn-block" type="submit" id="register-submit">Create Account</button>
+    </form>
+
+    <p class="auth-switch">Already have an account? <a href="/login.html">Log in</a></p>
+  </div>
+</main>
+
+<script type="module" src="/js/auth-pages.js"></script>
+</body>
+</html>
