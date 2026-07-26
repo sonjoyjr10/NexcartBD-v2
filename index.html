@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dream TopUp</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&family=Bree+Serif&family=Noto+Serif+Bengali:wght@400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="select-none bg-slate-50">
+
+<div id="app-content" class="relative max-w-md mx-auto bg-slate-50 min-h-screen shadow-2xl">
+    <header class="bg-white/90 backdrop-blur-md p-4 sticky top-0 z-40 flex justify-between items-center shadow-sm">
+        <div class="flex items-center gap-2">
+            <img id="header-logo-img" src="https://placehold.co/150x50?text=Logo" class="h-16 object-contain">
+        </div>
+        <div id="header-balance-container" class="hidden bg-sky-500 px-4 py-2 rounded-full text-sm font-bold text-white border border-sky-600 shadow-md">
+            <i class="fas fa-wallet mr-1"></i> ৳ <span id="header-balance">0</span>
+        </div>
+        <div id="header-login-container">
+            <button onclick="showAuthPage()" class="bg-sky-600 text-white px-4 py-2 rounded-full text-sm font-bold shadow-md hover:bg-sky-700 transition">
+                <i class="fas fa-sign-in-alt mr-1"></i> Login
+            </button>
+        </div>
+    </header>
+
+    <div id="notice-section" class="mb-0 px-3">
+        <div class="bg-sky-500 text-white p-4 relative">
+            <button onclick="this.parentElement.parentElement.style.display='none'" class="absolute top-2 right-2 text-white/80 hover:text-white transition">
+                <i class="fas fa-times text-sm"></i>
+            </button>
+            <div class="pr-6">
+                <div class="font-bold text-sm mb-1">Notice</div>
+                <div id="notice-text" class="text-sm">স্বাগতম আমাদের অ্যাপে...</div>
+            </div>
+        </div>
+    </div>
+
+    <main class="p-3 relative pb-20">
+        
+        <section id="auth-sec" class="hidden animate-fade-in">
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden relative p-6">
+                
+                <button onclick="showSec('home')" class="absolute top-4 right-4 text-gray-400 hover:text-red-500 transition z-10">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+
+                <div id="login-view">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6">Login</h2>
+
+                    <button onclick="handleGoogleLogin()" class="w-full bg-white border border-gray-300 text-gray-700 font-semibold py-2.5 rounded-lg shadow-sm hover:bg-gray-50 transition flex items-center justify-center gap-3 mb-6">
+                        <img src="https://www.svgrepo.com/show/475656/google-color.svg" class="w-5 h-5" alt="Google">
+                        Login with Google
+                    </button>
+
+                    <div class="relative flex py-2 items-center mb-6">
+                        <div class="flex-grow border-t border-gray-200"></div>
+                        <span class="flex-shrink-0 mx-4 text-gray-400 text-xs font-medium">Or sign in with credentials</span>
+                        <div class="flex-grow border-t border-gray-200"></div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="block text-gray-700 text-sm font-bold mb-2">Email</label>
+                        <input type="email" id="login-email" placeholder="Email" class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-colors">
+                    </div>
+
+                    <div class="mb-6">
+                        <label class="block text-gray-700 text-sm font-bold mb-2">Password</label>
+                        <input type="password" id="login-pass" placeholder="Password" class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-colors">
+                    </div>
+
+                    <button onclick="handleLogin()" class="w-full bg-sky-600 text-white font-bold py-3 rounded-lg shadow-lg hover:bg-sky-700 transition duration-300">
+                        Login
+                    </button>
+
+                    <div class="mt-6 text-center text-sm text-gray-600">
+                        New user to mangotopup.com? <button onclick="toggleAuth('register')" class="text-sky-600 font-bold hover:underline">Register Now</button>
+                    </div>
+                </div>
+
+                <div id="register-view" class="hidden">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6">Register</h2>
+
+                    <button onclick="handleGoogleLogin()" class="w-full bg-white border border-gray-300 text-gray-700 font-semibold py-2.5 rounded-lg shadow-sm hover:bg-gray-50 transition flex items-center justify-center gap-3 mb-6">
+                        <img src="https://www.svgrepo.com/show/475656/google-color.svg" class="w-5 h-5" alt="Google">
+                        Sign up with Google
+                    </button>
+
+                    <div class="relative flex py-2 items-center mb-6">
+                        <div class="flex-grow border-t border-gray-200"></div>
+                        <span class="flex-shrink-0 mx-4 text-gray-400 text-xs font-medium">Or sign up with credentials</span>
+                        <div class="flex-grow border-t border-gray-200"></div>
+                    </div>
+
+                    <div class="space-y-4 mb-6">
+                        <div>
+                            <label class="block text-gray-700 text-sm font-bold mb-1">Name</label>
+                            <input type="text" id="reg-name" placeholder="Name" class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500">
+                        </div>
+                        <div>
+                            <label class="block text-gray-700 text-sm font-bold mb-1">Phone</label>
+                            <input type="number" id="reg-phone" placeholder="Phone" class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500">
+                        </div>
+                        <div>
+                            <label class="block text-gray-700 text-sm font-bold mb-1">Email</label>
+                            <input type="email" id="reg-email" placeholder="Email" class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500">
+                        </div>
+                        <div>
+                            <label class="block text-gray-700 text-sm font-bold mb-1">Password</label>
+                            <input type="password" id="reg-pass" placeholder="Password" class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500">
+                        </div>
+                    </div>
+
+                    <button onclick="handleRegister()" class="w-full bg-sky-600 text-white font-bold py-3 rounded-lg shadow-lg hover:bg-sky-700 transition duration-300">
+                        Register
+                    </button>
+
+                    <div class="mt-6 text-center text-sm text-gray-600">
+                        Already member? <button onclick="toggleAuth('login')" class="text-sky-600 font-bold hover:underline">Login Now</button>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <section id="home-sec" class="animate-fade-in pb-8">
+            <div id="banner-container" class="mb-6 overflow-hidden shadow-md h-44 bg-gray-200 relative group">
+                <div id="slider-wrapper" class="flex h-full w-full transition-transform duration-500 ease-out">
+                    <img src="https://placehold.co/600x300/29b6f6/FFF?text=Loading..." class="w-full h-full object-cover flex-shrink-0">
+                </div>
+                <div id="slider-dots" class="absolute bottom-3 left-0 right-0 flex justify-center gap-2 z-10"></div>
+            </div>
+
+            <div class="grid grid-cols-3 gap-3 mb-5 px-2">
+                <a id="home-whatsapp" href="#" class="bg-white py-3 px-3 rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.05)] border border-gray-100 flex items-center justify-between active:scale-95 transition h-12 no-underline">
+                    <div class="w-8 h-8 rounded-full flex items-center justify-center bg-green-50 flex-shrink-0">
+                        <i class="fab fa-whatsapp text-xl text-[#25D366]"></i>
+                    </div>
+                    <span class="text-[12px] font-bold text-gray-700 lang-auto">WhatsApp</span>
+                </a>
+
+                <a id="home-telegram" href="#" class="bg-white py-3 px-3 rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.05)] border border-gray-100 flex items-center justify-between active:scale-95 transition h-12 no-underline">
+                    <div class="w-8 h-8 rounded-full flex items-center justify-center bg-blue-50 flex-shrink-0">
+                        <i class="fab fa-telegram-plane text-xl text-[#0088cc]"></i>
+                    </div>
+                    <span class="text-[12px] font-bold text-gray-700 lang-auto">Telegram</span>
+                </a>
+
+                <a id="home-app-dl" href="#" target="_blank" class="bg-white py-3 px-3 rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.05)] border border-gray-100 flex items-center justify-between active:scale-95 transition h-12 no-underline">
+                    <div class="w-8 h-8 rounded-full overflow-hidden shadow-sm flex-shrink-0">
+                        <img src="https://i.ibb.co/WvrTGr5Y/google-play-store-logo-1273375-804.jpg" 
+                             class="w-full h-full object-cover" alt="App DL">
+                    </div>
+                    <span class="text-[12px] font-bold text-gray-700 leading-tight lang-auto">App<br>Download</span>
+                </a>
+            </div>
+            
+            <div id="services-list" class="space-y-6 mb-8">
+                <div class="col-span-3 text-center py-10"><i class="fas fa-spinner fa-spin text-sky-500"></i> Loading Games...</div>
+            </div>
+
+            <div class="mt-8 mb-6">
+                <h3 class="text-center font-bold text-gray-700 text-xl mb-3 lang-auto" style="letter-spacing: 0.5px">Latest Orders</h3>
+                <div id="latest-orders-list" class="space-y-3 px-1">
+                    <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between animate-pulse">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-gray-200 rounded-full"></div>
+                            <div>
+                                <div class="h-4 bg-gray-200 rounded w-24 mb-2"></div>
+                                <div class="h-3 bg-gray-200 rounded w-32"></div>
+                            </div>
+                        </div>
+                        <div class="h-6 bg-gray-200 rounded-full w-20"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="promo-banner-container" class="mt-8 mb-6 px-1 hidden">
+                <a id="promo-banner-link" href="#" target="_blank" class="block w-full aspect-video rounded-xl overflow-hidden shadow-md">
+                    <img id="promo-banner-img" src="" class="w-full h-full object-cover">
+                </a>
+            </div>
+            
+            <div class="mt-8 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+                <div class="text-center mb-5">
+                    <img id="about-logo-img" src="https://placehold.co/150x50?text=Logo" class="h-10 mx-auto object-contain mb-2">
+                    <h2 id="about-site-name" class="text-lg font-bold text-gray-800 lang-auto">Nenox Shop</h2>
+                    <p class="text-sm text-gray-500 mt-1">Free Fire Diamond TopUp<br>Largest TopUp Site In Bangladesh</p>
+                </div>
+
+                <p class="text-xs text-center text-gray-600 mb-5 px-2 leading-relaxed">
+                    <b>নোটিশ:</b> যেকোন অর্ডার জনিত সমস্যায় মেসেজারে অর্ডারের স্ক্রিনশট এবং পেমেন্টের ট্রানজেকশন আইডি লিখে মেসেজ দিন। ১৮ বছরের নিচে অভিভাবকের অনুমতি ছাড়া অর্ডার করা সম্পূর্ণভাবে নিষিদ্ধ।
+                </p>
+
+                <div class="grid grid-cols-2 gap-3 mb-6">
+                    <a id="about-facebook" href="#" target="_blank" class="flex items-center justify-center gap-2 bg-gray-50 p-3 rounded-lg border border-gray-200 hover:bg-gray-100 transition no-underline">
+                        <i class="fab fa-facebook-f text-lg text-[#1877F2]"></i> <span class="font-semibold text-sm text-gray-700 lang-auto">Facebook</span>
+                    </a>
+                    <a id="about-youtube" href="#" target="_blank" class="flex items-center justify-center gap-2 bg-gray-50 p-3 rounded-lg border border-gray-200 hover:bg-gray-100 transition no-underline">
+                        <i class="fab fa-youtube text-lg text-[#FF0000]"></i> <span class="font-semibold text-sm text-gray-700 lang-auto">YouTube</span>
+                    </a>
+                    <a id="about-telegram" href="#" target="_blank" class="flex items-center justify-center gap-2 bg-gray-50 p-3 rounded-lg border border-gray-200 hover:bg-gray-100 transition no-underline">
+                        <i class="fab fa-telegram-plane text-lg text-[#0088cc]"></i> <span class="font-semibold text-sm text-gray-700 lang-auto">Telegram</span>
+                    </a>
+                    <a id="about-whatsapp" href="#" target="_blank" class="flex items-center justify-center gap-2 bg-gray-50 p-3 rounded-lg border border-gray-200 hover:bg-gray-100 transition no-underline">
+                        <i class="fab fa-whatsapp text-lg text-[#25D366]"></i> <span class="font-semibold text-sm text-gray-700 lang-auto">WhatsApp</span>
+                    </a>
+                </div>
+                
+                <h3 class="font-bold text-gray-800 text-base text-center mb-4 lang-auto">Contact Us</h3>
+                <div class="space-y-3">
+                    <a id="contact-whatsapp" href="#" class="block bg-gray-50 p-3 rounded-lg border border-gray-200 hover:bg-gray-100 transition no-underline">
+                         <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <i class="fab fa-whatsapp text-green-500"></i>
+                                <span class="font-semibold text-sm text-gray-700 lang-auto">Whatsapp HelpLine</span>
+                            </div>
+                            <span class="text-xs text-gray-500">সকাল ৮টা থেকে রাত ১২টা</span>
+                        </div>
+                    </a>
+                    <a id="contact-telegram" href="#" class="block bg-gray-50 p-3 rounded-lg border border-gray-200 hover:bg-gray-100 transition no-underline">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <i class="fab fa-telegram-plane text-sky-500"></i>
+                                <span class="font-semibold text-sm text-gray-700 lang-auto">Telegram HelpLine</span>
+                            </div>
+                            <span class="text-xs text-gray-500">সকাল ৮টা থেকে রাত ১২টা</span>
+                        </div>
+                    </a>
+                    <a id="contact-facebook" href="#" class="block bg-gray-50 p-3 rounded-lg border border-gray-200 hover:bg-gray-100 transition no-underline">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <i class="fab fa-facebook-f text-blue-600"></i>
+                                <span class="font-semibold text-sm text-gray-700 lang-auto">Facebook  HelpLine </span>
+                            </div>
+                            <span class="text-xs text-gray-500"> সকাল ৮টা থেকে রাত ১২টা</span>
+                        </div>
+                    </a>
+                </div>
+
+                <div class="text-center border-t border-gray-200 pt-4 mt-6">
+                    <p class="text-xs text-gray-500">
+              © 2026 Nano TopUp BD | All Rights Reserved | Developed By <a href="https://t.me/gfxrahulvai" target="_blank" class="font-bold text-sky-600 no-underline hover:underline">Team Nexa</a>
+                   </p>
+                </div>
+            </div>
+            </section>
+
+        <section id="tutorial-sec" class="hidden animate-fade-in pb-20">
+            <div class="bg-white">
+                <div class="p-6 border-b border-gray-100">
+                    <h2 class="font-semibold text-xl text-gray-800 mb-1 lang-auto">Video Tutorials</h2>
+                    <p class="text-sm text-gray-500">Learn how to use our services</p>
+                </div>
+                
+                <div class="p-4">
+                    <div id="tutorial-list-container" class="space-y-4"></div>
+                </div>
+            </div>
+        </section>
+
+        <section id="history-sec" class="hidden animate-fade-in pb-24">
+            <div class="bg-white border-b border-gray-200 px-4 py-3">
+                <h2 class="text-lg font-bold text-gray-800">Order History</h2>
+            </div>
+            <div id="history-list" class="px-4 py-3">
+                </div>
+        </section>
+
+        <section id="topup-sec" class="hidden animate-fade-in pb-10 bg-slate-50">
+            <div class="bg-white p-3 rounded-xl shadow-sm flex items-center gap-4 mb-4 border border-gray-100 mx-2 mt-2">
+                <button onclick="showSec('home')" class="text-gray-600 hover:text-sky-500 w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-200 absolute top-4 right-4">
+                    <i class="fas fa-times text-lg"></i>
+                </button>
+                <img id="topup-game-img" src="" class="w-16 h-16 rounded-xl object-cover shadow-sm">
+                <div>
+                    <h3 class="font-bold text-gray-800 text-base" id="topup-game-title">Game Name</h3>
+                    <p class="text-xs text-gray-700 font-medium" id="topup-sub-title">Game / Topup</p>
+                </div>
+            </div>
+
+            <div class="bg-white p-3 rounded-xl shadow-sm mb-4 border border-gray-100 mx-2">
+                <div class="flex items-center gap-2 mb-3">
+                    <span class="bg-red-600 text-white w-5 h-5 flex items-center justify-center rounded-full text-xs font-bold shadow-md">1</span>
+                    <h3 class="font-bold text-gray-800 text-sm">Select Recharge</h3>
+                </div>
+
+                <div id="product-loader" class="text-center py-10 hidden">
+                    <i class="fas fa-spinner fa-spin text-sky-500 text-2xl"></i>
+                </div>
+
+                <div id="products-grid" class="grid grid-cols-2 gap-2">
+                    </div>
+                
+                <div class="mt-3 text-right">
+                   <a href="#" onclick="showSec('tutorial')" class="text-xs text-gray-600 hover:text-sky-600 no-underline">
+                       <i class="fas fa-external-link-alt"></i> কিভাবে অর্ডার করবেন ?
+                   </a>
+                </div>
+            </div>
+
+            <div id="player-id-section" class="bg-white p-3 rounded-xl shadow-sm mb-4 border border-gray-100 mx-2">
+                <div class="flex items-center gap-2 mb-2">
+                    <span class="bg-red-600 text-white w-5 h-5 flex items-center justify-center rounded-full text-xs font-bold shadow-md">2</span>
+                    <h3 class="font-bold text-gray-800 text-sm">Account Info</h3>
+                </div>
+                
+                <div class="mb-2">
+                    <label class="block text-xs font-bold text-gray-700 mb-1">Player Id</label>
+                    <input type="text" id="game-player-id" placeholder="Player Id" class="w-full bg-white border border-gray-300 p-2 rounded focus:outline-none focus:border-sky-500 text-sm text-gray-700">
+                </div>
+                
+                <div id="uidCheckBtn" onclick="uidCheck()" class="w-full bg-gradient-to-r from-red-700 to-orange-500 text-white text-center py-2 rounded font-bold text-sm shadow cursor-pointer relative overflow-hidden">
+                    Click to check player name
+                    <div class="absolute inset-0 bg-white opacity-10 transform skew-x-12 translate-x-full animate-shine"></div>
+                </div>
+            </div>
+
+            <div class="bg-white p-3 rounded-xl shadow-sm mb-4 border border-gray-100 mx-2">
+                <div class="flex items-center gap-2 mb-3">
+                    <span class="bg-red-600 text-white w-5 h-5 flex items-center justify-center rounded-full text-xs font-bold shadow-md">3</span>
+                    <h3 class="font-bold text-gray-800 text-sm">Select one option</h3>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-3 mb-2">
+                    <div onclick="selectPaymentOption('wallet')" id="opt-wallet" class="pay-option-card selected">
+                        <div class="h-20 flex flex-col items-center justify-center p-2">
+                            <div class="flex items-center gap-1">
+                                <i class="fas fa-wallet text-orange-500 text-2xl"></i>
+                                <span class="font-bold text-lg text-gray-800">ওয়ালেট</span>
+                            </div>
+                        </div>
+                        <div class="bg-gray-200 text-center py-1 text-xs font-bold text-gray-600">Wallet Pay</div>
+                    </div>
+
+                    <div onclick="selectPaymentOption('instant')" id="opt-instant" class="pay-option-card">
+                        <div class="h-20 flex items-center justify-center gap-1 p-2">
+                             <img src="https://i.ibb.co.com/9kCCTNsx/1656227518bkash-logo-png.png" class="h-5 object-contain">
+                             <img src="https://i.ibb.co.com/VcqJTvpn/Nagad-Logo-horizontally-og.png" class="h-4 object-contain">
+                             <img src="https://i.ibb.co.com/wFZkNM48/rocket-color-logo-mobile-banking-icon-free-png.png" class="h-5 object-contain">
+                        </div>
+                        <div class="bg-gray-200 text-center py-1 text-xs font-bold text-gray-600">Instant Pay</div>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2 mb-4 px-1">
+                    <i class="fas fa-info-circle text-gray-400 text-xs"></i>
+                    <p class="text-[10px] text-gray-500">আপনার একাউন্ট ব্যালেন্স <span class="text-blue-600 font-bold">৳<span id="topup-balance-display">0.00</span></span> <i class="fas fa-redo text-[10px] text-gray-400"></i></p>
+                </div>
+
+                <button onclick="processOrder()" class="w-full bg-[#4a148c] text-white py-3 rounded-lg font-bold shadow-lg hover:bg-[#380e6d] transition text-sm">
+                     Buy Now
+                </button>
+            </div>
+
+            <div id="game-rules-box" class="bg-white p-3 rounded-xl shadow-sm mb-6 border border-gray-100 mx-2">
+                 <h3 class="font-bold text-gray-800 text-sm mb-2">Rules & Conditions</h3>
+                 <div id="game-rules-text" class="text-xs text-gray-700 leading-relaxed space-y-2">
+                    </div>
+            </div>
+            
+            <span id="total-price" class="hidden">0</span>
+        </section>
+
+        <section id="addmoney-sec" class="hidden animate-fade-in pb-20 bg-[#f8fafc] min-h-screen">
+            
+            <div id="am-step-1" class="step-transition">
+                <div class="bg-white p-6 shadow-sm border-b border-gray-100 mb-6">
+                    <h2 class="font-bold text-lg text-gray-800 uppercase tracking-wide">Add Money</h2>
+                </div>
+
+                <div class="px-4">
+                    <div class="bg-white rounded-lg p-8 shadow-sm border border-gray-200 mb-6 text-center">
+                        <label class="block text-gray-500 text-sm font-bold mb-4 uppercase tracking-wider">
+                            Enter Amount to Deposit
+                        </label>
+                        
+                        <div class="relative mb-6 max-w-[200px] mx-auto">
+                            <span class="absolute left-3 top-1/2 transform -translate-y-1/2 text-2xl font-bold text-gray-400">৳</span>
+                            <input type="number" id="new-amount-input" value="100" 
+                                   class="w-full border-b-2 border-gray-300 py-2 pl-8 pr-2 text-center text-3xl font-bold text-gray-800 focus:outline-none focus:border-red-500 transition-colors bg-transparent" 
+                                   placeholder="100">
+                        </div>
+
+                        <button onclick="goToMethodStep()" 
+                                class="w-full bg-sky-600 text-white font-bold py-3.5 rounded shadow-lg hover:bg-sky-700 active:scale-95 transition-all text-sm uppercase tracking-wide">
+                            PROCEED TO PAYMENT
+                        </button>
+                    </div>
+
+                    <div class="mt-4">
+                        <div class="flex items-center gap-2 mb-2">
+                            <i class="fab fa-youtube text-red-600"></i>
+                            <h3 class="font-bold text-gray-700 text-sm">Tutorial: How to Add Money</h3>
+                        </div>
+                        <div class="bg-white rounded-lg overflow-hidden shadow-sm border border-gray-200 p-1">
+                            <div class="relative w-full aspect-video">
+                                <iframe id="new-tutorial-video" 
+                                        class="w-full h-full rounded"
+                                        src="https://www.youtube.com/embed/dQw4w9WgXcQ" 
+                                        title="How to Add Money"
+                                        frameborder="0" 
+                                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                                        allowfullscreen>
+                                </iframe>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="am-step-2" class="hidden step-transition h-screen flex flex-col bg-[#f0f4f7]">
+                <div class="bg-white p-3 flex items-center justify-between shadow-sm sticky top-0 z-10">
+                    <button onclick="backToAmountStep()" class="text-gray-500 w-8 h-8 flex items-center justify-center">
+                         <i class="fas fa-arrow-left text-lg"></i>
+                    </button>
+                    <div class="text-right">
+                        <img src="" id="step2-logo" class="h-8 object-contain inline-block">
+                    </div>
+                    <button onclick="showSec('home')" class="text-gray-400">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+
+                <div class="flex-1 flex flex-col justify-center items-center px-6">
+                    <div class="bg-white rounded-full w-32 h-32 flex items-center justify-center shadow-sm border border-gray-100 mb-6 p-4">
+                        <img src="" id="step2-center-logo" class="w-full object-contain">
+                    </div>
+                    
+                    <h2 class="text-gray-600 font-medium mb-8 text-lg">Auto Pay</h2>
+
+                    <div class="w-full bg-[#003399] text-white py-2.5 text-center text-sm font-bold rounded-t-lg mb-0 shadow-md">
+                        মোবাইল ব্যাংকিং
+                    </div>
+                    
+                    <div class="w-full grid grid-cols-2 gap-4 bg-white p-4 rounded-b-lg shadow-sm border border-gray-200 border-t-0">
+                        <button onclick="goToPaymentPage('bKash', 'theme-bkash', 'https://i.ibb.co.com/9kCCTNsx/1656227518bkash-logo-png.png')" 
+                                class="bg-white border border-gray-200 rounded-lg p-2 flex items-center justify-center hover:border-pink-500 hover:shadow-md transition h-16">
+                            <img src="https://i.ibb.co.com/9kCCTNsx/1656227518bkash-logo-png.png" class="h-8 object-contain">
+                        </button>
+                        
+                        <button onclick="goToPaymentPage('Nagad', 'theme-nagad', 'https://i.ibb.co.com/VcqJTvpn/Nagad-Logo-horizontally-og.png')" 
+                                class="bg-white border border-gray-200 rounded-lg p-2 flex items-center justify-center hover:border-orange-500 hover:shadow-md transition h-16">
+                            <img src="https://i.ibb.co.com/VcqJTvpn/Nagad-Logo-horizontally-og.png" class="h-6 object-contain">
+                        </button>
+
+                        <button onclick="goToPaymentPage('Rocket', 'theme-rocket', 'https://i.ibb.co.com/wFZkNM48/rocket-color-logo-mobile-banking-icon-free-png.png')" 
+                                class="bg-white border border-gray-200 rounded-lg p-2 flex items-center justify-center hover:border-purple-500 hover:shadow-md transition h-16">
+                            <img src="https://i.ibb.co.com/wFZkNM48/rocket-color-logo-mobile-banking-icon-free-png.png" class="h-6 object-contain">
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="am-step-3" class="hidden step-transition min-h-screen bg-[#f0f4f7] relative pb-24">
+                
+                <div class="bg-white p-3 shadow-sm flex justify-between items-center sticky top-0 z-20">
+                    <button onclick="backToMethodStep()" class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-600">
+                        <i class="fas fa-arrow-left"></i>
+                    </button>
+                    <div class="flex items-center gap-2">
+                        <span class="bg-gray-100 px-2 py-0.5 rounded text-xs font-bold text-gray-500">English <i class="fas fa-caret-down ml-1"></i></span>
+                        <button onclick="showSec('home')" class="text-gray-400 text-lg"><i class="fas fa-times"></i></button>
+                    </div>
+                </div>
+
+                <div class="text-center py-6">
+                    <img id="pay-method-logo" src="" class="h-12 mx-auto object-contain drop-shadow-sm">
+                </div>
+
+                <div class="px-4">
+                    <div class="bg-white rounded-xl p-4 flex items-center gap-4 mb-4 shadow-sm">
+                        <div class="w-12 h-12 rounded-full border border-gray-100 p-1">
+                            <img id="pay-site-logo-small" src="" class="w-full h-full rounded-full object-cover">
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-800 font-bold">Auto Pay</p>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-xl p-4 mb-4 shadow-sm flex items-center gap-2">
+                        <span class="text-lg font-bold text-gray-700">৳</span>
+                        <span id="pay-amount-display" class="text-xl font-bold text-gray-800">100</span>
+                    </div>
+
+                    <div id="payment-theme-card" class="rounded-xl shadow-lg overflow-hidden text-white mb-6 relative transition-colors duration-300">
+                        
+                        <div class="p-5 text-center">
+                            <h3 class="font-bold text-lg mb-4 drop-shadow-md">ট্রানজেকশন আইডি দিন</h3>
+                            <input type="text" id="pay-trx-input" 
+                                   class="w-full bg-white text-gray-800 text-center py-3 rounded text-sm font-bold shadow-inner focus:outline-none placeholder-gray-400" 
+                                   placeholder="ট্রানজেকশন আইডি দিন">
+                        </div>
+
+                        <div class="bg-black/10 p-5 text-sm space-y-4 backdrop-blur-sm border-t border-white/20">
+                            
+                            <div class="flex gap-2">
+                                <span class="mt-1">•</span>
+                                <p>*247# ডায়াল করে আপনার <span class="method-name font-bold">bKash</span> মোবাইল মেনুতে যান অথবা <span class="method-name font-bold">bKash</span> অ্যাপে যান।</p>
+                            </div>
+
+                            <div class="flex gap-2">
+                                <span class="mt-1">•</span>
+                                <p>"Send Money" -এ ক্লিক করুন।</p>
+                            </div>
+
+                            <div class="flex flex-col gap-1 pl-3">
+                                <p>• প্রাপক নম্বর হিসেবে এই নম্বরটি লিখুন:</p>
+                                <div class="flex items-center gap-2 mt-1">
+                                    <span id="pay-admin-number" class="text-2xl font-bold text-yellow-300 tracking-wider">Loading...</span>
+                                    <button onclick="copyPayNumber()" class="bg-black/30 hover:bg-black/50 text-white px-2 py-1 rounded text-[10px] font-bold transition flex items-center gap-1 border border-white/30">
+                                        <i class="far fa-copy"></i> COPY
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="flex gap-2">
+                                <span class="mt-1">•</span>
+                                <p>টাকার পরিমাণ: <span id="pay-amount-text" class="font-bold text-yellow-300">100</span></p>
+                            </div>
+
+                            <div class="flex gap-2">
+                                <span class="mt-1">•</span>
+                                <p>নিশ্চিত করতে এখন আপনার <span class="method-name font-bold">bKash</span> মোবাইল মেনু পিন লিখুন।</p>
+                            </div>
+
+                            <div class="flex gap-2">
+                                <span class="mt-1">•</span>
+                                <p>সবকিছু ঠিক থাকলে, আপনি <span class="method-name font-bold">bKash</span> থেকে একটি নিশ্চিতকরণ বার্তা পাবেন।</p>
+                            </div>
+
+                            <div class="flex gap-2">
+                                <span class="mt-1">•</span>
+                                <p class="font-bold text-yellow-200">এখন উপরের বক্সে আপনার Transaction ID দিন এবং নিচের VERIFY বাটনে ক্লিক করুন।</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-100 max-w-md mx-auto z-50 rounded-t-xl">
+                    <button onclick="handleNewVerify()" 
+                            class="w-full bg-[#b71c1c] text-white font-bold py-3 rounded shadow-lg hover:bg-red-800 transition active:scale-95 text-lg tracking-wider">
+                        VERIFY
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <section id="account-sec" class="hidden animate-fade-in pb-24 bg-[#f6f8fa] min-h-screen">
+            <div class="flex flex-col items-center pt-8 pb-4">
+                <div class="relative mb-2">
+                    <div class="w-24 h-24 rounded-full bg-gradient-to-b from-[#4DD0E1] to-[#0288D1] p-1 shadow-md">
+                        <div class="w-full h-full rounded-full bg-white p-[2px]">
+                            <div id="profile-img-container" class="w-full h-full rounded-full bg-[#00e676] overflow-hidden flex items-center justify-center">
+                                <span id="profile-initial" class="text-4xl font-normal text-black hidden"></span>
+                                <img id="acc-profile-img" src="" class="w-full h-full object-cover hidden">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <h2 class="text-sm font-bold text-[#1976d2] mb-1">Hi, <span id="acc-profile-name">User</span></h2>
+                
+                <div class="flex items-center gap-1 text-black font-bold text-[11px]">
+                    <span>Available Balance : <span id="acc-profile-balance">0</span> Tk</span>
+                    <i class="fas fa-redo-alt text-[10px] cursor-pointer text-gray-800 hover:rotate-180 transition-transform"></i>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3 px-4 mb-6">
+                <div class="bg-white py-3 px-2 rounded-lg border border-[#2196F3] text-center shadow-sm">
+                    <h3 class="text-[#2196F3] font-bold text-base mb-1" id="acc-support-pin">...</h3>
+                    <p class="text-black font-bold text-[11px]">Support Pin</p>
+                </div>
+                
+                <div class="bg-white py-3 px-2 rounded-lg border border-[#2196F3] text-center shadow-sm">
+                    <h3 class="text-[#2196F3] font-bold text-base mb-1"><span id="acc-weekly-spent">0</span> ৳</h3>
+                    <p class="text-black font-bold text-[11px]">Weekly Spent</p>
+                </div>
+                
+                <div class="bg-white py-3 px-2 rounded-lg border border-[#2196F3] text-center shadow-sm">
+                    <h3 class="text-[#2196F3] font-bold text-base mb-1" id="acc-total-spent">0</h3>
+                    <p class="text-black font-bold text-[11px]">Total Spent</p>
+                </div>
+                
+                <div class="bg-white py-3 px-2 rounded-lg border border-[#2196F3] text-center shadow-sm">
+                    <h3 class="text-[#2196F3] font-bold text-base mb-1" id="acc-total-orders">0</h3>
+                    <p class="text-black font-bold text-[11px]">Total Order</p>
+                </div>
+            </div>
+
+            <div class="px-4 mb-4">
+                <div class="bg-white shadow-sm">
+                    <div class="px-4 py-3 flex items-center gap-2">
+                        <i class="fas fa-folder-open text-black text-sm"></i>
+                        <h3 class="font-bold text-sm text-black">Account Information</h3>
+                    </div>
+                    <div class="border-t border-gray-100 p-4 space-y-4">
+                        <div class="bg-white rounded-lg border border-gray-100 shadow-[0_2px_8px_rgba(0,0,0,0.04)] py-4 text-center">
+                            <div class="flex items-center justify-center gap-2 mb-1 text-gray-500">
+                                <i class="fas fa-redo-alt text-xs"></i>
+                                <span class="text-sm font-medium">৳<span id="acc-balance-card">0.00</span></span>
+                            </div>
+                            <p class="font-bold text-sm text-black">Available Balance</p>
+                        </div>
+
+                        <div class="bg-white rounded-lg border border-gray-100 shadow-[0_2px_8px_rgba(0,0,0,0.04)] py-4 text-center">
+                            <div class="flex justify-center mb-2">
+                                <div class="relative text-[#007bff]">
+                                    <i class="fas fa-certificate text-4xl"></i>
+                                    <i class="fas fa-check text-white absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-sm"></i>
+                                </div>
+                            </div>
+                            <p class="font-bold text-sm text-black">Account Verified!</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="px-4 mb-6">
+                <div class="bg-white shadow-sm">
+                    <div class="px-4 py-3 flex items-center gap-2">
+                        <i class="fas fa-info-circle text-black text-sm"></i>
+                        <h3 class="font-bold text-sm text-black">User Information</h3>
+                    </div>
+                    <div class="border-t border-gray-100 p-4">
+                        <p class="text-[11px] font-bold text-black mb-2">email : <span id="acc-email" class="font-bold text-black">user@email.com</span></p>
+                        <p class="text-[11px] font-bold text-black">Phone : <span id="acc-phone" class="font-bold text-black">Not Available</span></p>
+                    </div>
+                </div>
+                
+                <div class="mt-4">
+                     <button onclick="handleLogout()" class="w-full p-3 bg-white shadow-sm flex items-center justify-center gap-2 hover:bg-red-50 transition duration-300">
+                        <i class="fas fa-sign-out-alt text-red-500"></i>
+                        <span class="font-bold text-sm text-red-500">Log Out</span>
+                     </button>
+                </div>
+            </div>
+        </section>
+        </main>
+    
+    <div id="fab-container" class="fixed bottom-20 right-4 z-50">
+        <div class="flex items-center gap-2">
+            <div id="fab-help-text" class="bg-red-500 text-white text-xs font-semibold px-2 py-1.5 rounded-lg shadow-md transition-opacity duration-300">
+                সাহায্য লাগবে ?
+            </div>
+            
+            <div class="relative flex flex-col items-center">
+                <div id="fab-options" class="absolute bottom-14 space-y-1.5 transition-all duration-300 ease-out transform translate-y-4 opacity-0 pointer-events-none">
+                     <a id="link-whatsapp" href="#" target="_blank" class="flex items-center justify-center w-10 h-10 bg-white rounded-full shadow-lg hover:bg-gray-100 no-underline">
+                        <i class="fab fa-whatsapp text-xl text-[#25D366]"></i>
+                    </a>
+                     <a id="link-telegram" href="#" target="_blank" class="flex items-center justify-center w-10 h-10 bg-white rounded-full shadow-lg hover:bg-gray-100 no-underline">
+                        <i class="fab fa-telegram-plane text-xl text-[#0088cc]"></i>
+                    </a>
+                </div>
+                <button id="fab-toggler" onclick="toggleFabMenu()" class="relative w-12 h-12 bg-red-500 rounded-full flex items-center justify-center text-white text-xl shadow-xl transition-all duration-300 ease-in-out hover:bg-red-600 focus:outline-none">
+                    <i id="fab-icon-open" class="fas fa-phone-alt transition-all duration-300 transform"></i>
+                    <i id="fab-icon-close" class="fas fa-times absolute transition-all duration-300 transform scale-0 opacity-0 -rotate-180"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <nav class="fixed bottom-0 w-full bg-white/95 backdrop-blur-sm border-t border-gray-100/50 py-3 px-6 shadow-[0_-5px_20px_rgba(0,0,0,0.03)] z-40 max-w-md mx-auto left-0 right-0 rounded-t-[20px]">
+        <div class="flex justify-between items-center">
+            <button onclick="showSec('home')" class="nav-item flex flex-col items-center gap-1.5 text-gray-700 transition-all duration-300 hover:text-sky-500 active-tab group" id="nav-home">
+                <img src="https://img.icons8.com/?size=100&id=OXVih02dFZ53&format=png&color=000000" class="w-6 h-6 group-hover:scale-110 transition-transform duration-300" alt="Home">
+                <span class="text-[10px] font-semibold tracking-wide">Home</span>
+            </button>
+            
+            <button onclick="showSec('tutorial')" class="nav-item flex flex-col items-center gap-1.5 text-gray-700 transition-all duration-300 hover:text-sky-500 group" id="nav-tutorial">
+                <img src="https://img.icons8.com/?size=100&id=15979&format=png&color=000000" class="w-6 h-6 group-hover:scale-110 transition-transform duration-300" alt="Tutorial">
+                <span class="text-[10px] font-semibold tracking-wide">Tutorial</span>
+            </button>
+            
+            <button onclick="showSec('addmoney')" class="nav-item flex flex-col items-center gap-1.5 text-gray-700 transition-all duration-300 hover:text-sky-500 group" id="nav-addmoney">
+                <img src="https://img.icons8.com/?size=100&id=95782&format=png&color=000000" class="w-6 h-6 group-hover:scale-110 transition-transform duration-300" alt="Add Money">
+                <span class="text-[10px] font-semibold tracking-wide">Add Money</span>
+            </button>
+            
+            <button onclick="showSec('history')" class="nav-item flex flex-col items-center gap-1.5 text-gray-700 transition-all duration-300 hover:text-sky-500 group" id="nav-history">
+                <img src="https://img.icons8.com/?size=100&id=41117&format=png&color=000000" class="w-6 h-6 group-hover:scale-110 transition-transform duration-300" alt="History">
+                <span class="text-[10px] font-semibold tracking-wide">History</span>
+            </button>
+            
+            <button onclick="showSec('account')" class="nav-item flex flex-col items-center gap-1.5 text-gray-700 transition-all duration-300 hover:text-sky-500 group" id="nav-account">
+                <img src="https://img.icons8.com/?size=100&id=7820&format=png&color=000000" class="w-6 h-6 group-hover:scale-110 transition-transform duration-300" alt="Account">
+                <span class="text-[10px] font-semibold tracking-wide">Account</span>
+            </button>
+        </div>
+    </nav>
+</div>
+
+
+    <script src="config.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
