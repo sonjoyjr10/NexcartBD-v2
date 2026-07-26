@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>My Dashboard — Supper Shop</title>
+<meta name="robots" content="noindex" />
+<link rel="icon" href="/assets/icons/favicon.svg" type="image/svg+xml" />
+<link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+<header class="site-header">
+  <div class="container">
+    <a href="/index.html" class="brand"><span class="chip-dot"></span>Supper<span class="accent">Shop</span></a>
+    <nav class="nav-links"><a href="/index.html">Store</a></nav>
+    <div class="header-actions" id="header-actions"></div>
+  </div>
+</header>
+
+<div class="dash-shell">
+  <aside class="dash-sidebar glass" id="dash-sidebar">
+    <nav class="dash-nav" id="dash-nav">
+      <a href="#overview" data-tab="overview">📊 Overview</a>
+      <a href="#wallet" data-tab="wallet">💰 Wallet</a>
+      <a href="#orders" data-tab="orders">🧾 Orders</a>
+      <a href="#wishlist" data-tab="wishlist">♥ Wishlist</a>
+      <a href="#referral" data-tab="referral">🎁 Referral</a>
+      <a href="#tickets" data-tab="tickets">💬 Support</a>
+      <a href="#notifications" data-tab="notifications">🔔 Notifications</a>
+      <a href="#profile" data-tab="profile">👤 Profile</a>
+      <a href="#" id="logout-link">🚪 Log Out</a>
+    </nav>
+  </aside>
+
+  <main class="dash-main" id="dash-content">
+    <div class="skeleton" style="height:40px;width:220px;margin-bottom:20px"></div>
+    <div class="skeleton" style="height:200px"></div>
+  </main>
+</div>
+
+<script type="module" src="/js/dashboard.js"></script>
+</body>
+</html>
